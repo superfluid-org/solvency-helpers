@@ -1,0 +1,19 @@
+{
+  "name": "solvency-helpers",
+  "version": "1.0.0",
+  "description": "",
+  "main": "solvency-checker.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@decentral.ee/web3-helpers": "^0.5.3",
+    "@superfluid-finance/js-sdk": "^0.5.4",
+    "async": "^3.2.1",
+    "axios": "^0.22.0",
+    "printf": "^0.6.1",
+    "web3": "^1.6.0"
+  }
+}
