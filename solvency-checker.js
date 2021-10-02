@@ -3,9 +3,16 @@ const Web3 = require("web3");
 const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 const { asleep, selectNetwork, getAllSuperTokens, getAllAccounts } = require("./superfluid-subgraph");
 const { toWad, wad4human } = require("@decentral.ee/web3-helpers");
-const printf = require("printf"); 
+const printf = require("printf");
 
-const MAX_REQUESTS = 200;
+// for using in a bash script which forwards to a Slack hook:
+/*
+for n in xdai matic; do
+    curl -s -X POST -H 'Content-type: application/json' --data "$(NETWORK_NAME=$n node solvency-checker.js | jq -MRn '[inputs] | { "text": join("\n") }')" $SLACK_WEBHOOK -o /dev/null
+done
+*/
+
+const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 
 let negativeExists = false;
 
