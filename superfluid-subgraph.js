@@ -35,7 +35,7 @@ function asleep(ms) {
 
 function selectNetwork(networkName) {
     network = NETWORKS[networkName];
-    console.log("Network name", process.env.NETWORK_NAME);
+    //console.log("Network name", process.env.NETWORK_NAME);
     return network;
 }
 

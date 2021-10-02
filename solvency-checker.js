@@ -14,7 +14,7 @@ function truncateStr (str, maxLen, end = '…')  {
 }
 
 (async () => {
-    console.log("```");
+    //console.log("```");
     const network = selectNetwork(process.env.NETWORK_NAME);
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
     
@@ -22,9 +22,9 @@ function truncateStr (str, maxLen, end = '…')  {
     console.log(`NETWORK: ${process.env.NETWORK_NAME} - ${superTokens.length} Super Tokens`);
     const web3 = new Web3(network.web3ProviderUrl);
     const block = await web3.eth.getBlock("latest");
-    console.log(" ------------------------------------------------------------------------------------------------")
-    console.log(" TOKEN SYMBOL | NR ACCS | REWARD ACC BAL |   SUM BALANCES   |   TOTAL SUPPLY   | SUPPLY - SUM BAL");
-    console.log(" ------------------------------------------------------------------------------------------------")
+    console.log("\` ------------------------------------------------------------------------------------------------\`")
+    console.log("\` TOKEN SYMBOL | NR ACCS | REWARD ACC BAL |   SUM BALANCES   |   TOTAL SUPPLY   | SUPPLY - SUM BAL\`");
+    console.log("\` ------------------------------------------------------------------------------------------------\`")
     for (let i = 0; i < superTokens.length; ++i) {
         //console.log("---");
         const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
@@ -67,7 +67,7 @@ function truncateStr (str, maxLen, end = '…')  {
         const relevantNegativeBalances = balances.filter(account => account.criticalForSeconds > reportCriticalAfter);
         if (relevantNegativeBalances.length > 0) {
             console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds`);
-            console.log(relevantNegativeBalances.map(a => `   acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, critical for ${a.criticalFor}`));
+            console.log(relevantNegativeBalances.map(a => `\`   acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, critical for ${a.criticalFor}\``));
             negativeExists = true;
         }
         
@@ -76,7 +76,7 @@ function truncateStr (str, maxLen, end = '…')  {
         //console.log("Balances sum", balancesSum.toString() / 1e18);
         //console.log("Total supply", totalSupply.toString() / 1e18);
         
-        console.log(printf(" %-12s | %7d | %14.3f | %16.0f | %16.0f | %14.3f ", 
+        console.log(printf("\` %-12s | %7d | %14.3f | %16.0f | %16.0f | %14.3f \`", 
             symbol, 
             accounts.length, 
             rewardAddressBalance.availableBalance / 1e18, 
@@ -87,7 +87,7 @@ function truncateStr (str, maxLen, end = '…')  {
         
         await asleep(1000);
     }
-    console.log("```");
+    //console.log("```");
 
     if (negativeExists) {
         console.log(":warning: <!channel> NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.");
