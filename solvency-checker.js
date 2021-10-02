@@ -22,7 +22,7 @@ function truncateStr (str, maxLen, end = '…')  {
     console.log(`NETWORK: ${process.env.NETWORK_NAME} - ${superTokens.length} Super Tokens`);
     const web3 = new Web3(network.web3ProviderUrl);
     const block = await web3.eth.getBlock("latest");
-    console.log("\` ------------------------------------------------------------------------------------------------\`")
+    //console.log("\` ------------------------------------------------------------------------------------------------\`")
     console.log("\` TOKEN SYMBOL | NR ACCS | REWARD ACC BAL |   SUM BALANCES   |   TOTAL SUPPLY   | SUPPLY - SUM BAL\`");
     console.log("\` ------------------------------------------------------------------------------------------------\`")
     for (let i = 0; i < superTokens.length; ++i) {
