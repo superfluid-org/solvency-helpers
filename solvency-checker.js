@@ -29,9 +29,9 @@ function truncateStr (str, maxLen, end = '…')  {
     console.log(`NETWORK: ${process.env.NETWORK_NAME} - ${superTokens.length} Super Tokens`);
     const web3 = new Web3(network.web3ProviderUrl);
     const block = await web3.eth.getBlock("latest");
-    //console.log("\` ------------------------------------------------------------------------------------------------\`")
-    console.log("\` TOKEN SYMBOL | NR ACCS | REWARD ACC BAL |   SUM BALANCES   |   TOTAL SUPPLY   | SUPPLY - SUM BAL\`");
-    console.log("\` ------------------------------------------------------------------------------------------------\`")
+    //console.log("\` --------------------------------------------------------------------------\`")
+    console.log("\` TOKEN SYMBOL | NR ACCS | REWARD ACC BAL |   SUM BALANCES   |   TOTAL SUPPLY  \`");
+    console.log("\` ---------------------------------------------------------------------------\`")
     for (let i = 0; i < superTokens.length; ++i) {
         //console.log("---");
         const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
@@ -83,13 +83,12 @@ function truncateStr (str, maxLen, end = '…')  {
         //console.log("Balances sum", balancesSum.toString() / 1e18);
         //console.log("Total supply", totalSupply.toString() / 1e18);
         
-        console.log(printf("\` %-12s | %7d | %14.3f | %16.0f | %16.0f | %14.3f \`", 
+        console.log(printf("\` %-12s | %7d | %14.3f | %16.0f | %16.0f \`", 
             symbol, 
             accounts.length, 
             rewardAddressBalance.availableBalance / 1e18, 
             balancesSum.toString() / 1e18, 
-            totalSupply.toString() / 1e18,
-            excessSupply.toString() / 1e18
+            totalSupply.toString() / 1e18
         ));
         
         await asleep(1000);
