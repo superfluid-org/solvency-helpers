@@ -54,7 +54,6 @@ function truncateStr (str, maxLen, end = '…')  {
                 criticalFor: (availableBalance.ltn(0) && netFlow.ltn(0) ? availableBalance.div(netFlow).toString() : "0")/3600 + " hours",
             };
         }));
-        const negativeBalances = balances.filter(account => web3.utils.toBN(account.availableBalance).ltn(0));
         const rewardAddressBalance = await superToken.methods.realtimeBalanceOf(network.rewardAddress, block.timestamp).call(block.number);
         balances.push({
             account: network.rewardAddress,
@@ -63,18 +62,11 @@ function truncateStr (str, maxLen, end = '…')  {
         const balancesSum = balances.reduce((acc, cur) => {
             return acc.add(web3.utils.toBN(cur.availableBalance));
         }, web3.utils.toBN(0));
-        
-        // TODO: remove this if the new report format works ok
-        if (negativeBalances.length > 0) {
-            console.log(`Negative accounts for token ${symbol} (${superTokens[i]})`);
-            console.log(negativeBalances);
-            negativeExists = true;
-        }
 
         const relevantNegativeBalances = balances.filter(account => account.criticalForSeconds > reportCriticalAfter);
         if (relevantNegativeBalances.length > 0) {
             console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds`);
-            console.log(relevantNegativeBalances.map(a => `\`   acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, critical for ${a.criticalFor}\``));
+            console.log(relevantNegativeBalances.map(a => `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, critical for ${a.criticalFor}`));
             negativeExists = true;
         }
         
