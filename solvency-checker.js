@@ -30,8 +30,8 @@ function truncateStr (str, maxLen, end = '…')  {
     const web3 = new Web3(network.web3ProviderUrl);
     const block = await web3.eth.getBlock("latest");
     //console.log("\` --------------------------------------------------------------------------\`")
-    console.log("\` TOKEN SYMBOL | NR ACCS | REWARDS BAL  |  SUM BALANCES   |  TOTAL SUPPLY  \`");
-    console.log("\` ---------------------------------------------------------------------------\`")
+    console.log("\` TOKEN SYM  | NR ACCS | REWARDS BAL  |  SUM BALANCES  |  TOTAL SUPPLY  \`");
+    console.log("\` --------------------------------------------------------------------- \`")
     for (let i = 0; i < superTokens.length; ++i) {
         //console.log("---");
         const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
@@ -75,7 +75,7 @@ function truncateStr (str, maxLen, end = '…')  {
         //console.log("Balances sum", balancesSum.toString() / 1e18);
         //console.log("Total supply", totalSupply.toString() / 1e18);
         
-        console.log(printf("\` %-12s | %7d | %12.3f | %15.0f | %15.0f \`", 
+        console.log(printf("\` %-10s | %7d | %12.3f | %14.0f | %14.0f \`", 
             symbol, 
             accounts.length, 
             rewardAddressBalance.availableBalance / 1e18, 
