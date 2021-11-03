@@ -14,7 +14,7 @@ const NETWORKS = {
         cfaAddress: "0xEbdA4ceF883A7B12c4E669Ebc58927FBa8447C7D",
         rewardAddress: "0x8e8F05f1aD16D20e66Bd0922b510332104ddAc7B",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-xdai",
-        web3ProviderUrl: "http://xdai-mainnet-1.web3-nodes.superfluid.dev:8545",
+        web3ProviderUrl: process.env.XDAI_PROVIDER_URL || "http://xdai-mainnet-1.web3-nodes.superfluid.dev:8545",
         batchLiquidatorAddress: "0xf4b9bBFc34dc8cc392bC97c76bc60D8350D83172",
     },
     matic: {
@@ -22,7 +22,7 @@ const NETWORKS = {
         cfaAddress: "0x6EeE6060f715257b970700bc2656De21dEdF074C",
         rewardAddress: "0x1EB3FAA360bF1f093F5A18d21f21f13D769d044A",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-matic",
-        web3ProviderUrl: "http://matic-mainnet-2.web3-nodes.superfluid.dev:8545",
+        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://matic-mainnet-3.web3-nodes.superfluid.dev:8545",
         batchLiquidatorAddress: "0xE6E151C28F6EC8DD696637ac2bf5d24adB527566",
     },
 };
