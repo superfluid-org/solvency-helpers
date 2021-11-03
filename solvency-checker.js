@@ -15,6 +15,11 @@ done
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 
 let negativeExists = false;
+let errExists = false;
+let nrAccs = 0;
+let nrAccsWithNegFlow = 0;
+let nrAccsCritical = 0;
+let nrAccsInsolvent = 0;
 
 function truncateStr (str, maxLen, end = '…')  {
     return str.length() <= maxLen ? str : str.substring(0, maxLen).concat(end);
@@ -26,71 +31,99 @@ function truncateStr (str, maxLen, end = '…')  {
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
     
     const superTokens = await getAllSuperTokens();
-    console.log(`NETWORK: ${process.env.NETWORK_NAME} - ${superTokens.length} Super Tokens`);
+    console.log(`Checking ${superTokens.length} ${process.env.NETWORK_NAME} tokens… (RPC: ${network.web3ProviderUrl})`);
     const web3 = new Web3(network.web3ProviderUrl);
     const block = await web3.eth.getBlock("latest");
     //console.log("\` --------------------------------------------------------------------------\`")
-    console.log("\` TOKEN SYM  | NR ACCS | REWARDS BAL  |  SUM BALANCES  |  TOTAL SUPPLY  \`");
-    console.log("\` --------------------------------------------------------------------- \`")
+//    console.log("\` TOKEN SYM  | NR ACCS | REWARDS BAL  |  SUM BALANCES  |  TOTAL SUPPLY  \`");
+//    console.log("\` --------------------------------------------------------------------- \`")
+    let errCnt = 0;
     for (let i = 0; i < superTokens.length; ++i) {
-        //console.log("---");
-        const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
-        const symbol = await superToken.methods.symbol().call();
-        const totalSupply = await superToken.methods.totalSupply().call();
-        //console.log("Super Token", symbol, superToken._address);
-        const accounts = await getAllAccounts(superTokens[i]);
-        //console.log("Number of Accounts", accounts.length);
-        const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.cfaAddress);
-        // skip wrong host version tokens
-        if ((await superToken.methods.getHost().call()).toLowerCase() !== network.hostAddress.toLowerCase()) continue;
-        const balances = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
-            const rtb = await superToken.methods.realtimeBalanceOf(account, block.timestamp).call(block.number);
-            const availableBalance = web3.utils.toBN(rtb.availableBalance);
-            const netFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call(block.number));
-            return {
-                account,
-                availableBalance: rtb.availableBalance.toString(),
-                criticalForSeconds: parseInt((availableBalance.ltn(0) && netFlow.ltn(0) ? availableBalance.div(netFlow).toString() : "0")),
-                criticalFor: (availableBalance.ltn(0) && netFlow.ltn(0) ? availableBalance.div(netFlow).toString() : "0")/3600 + " hours",
-            };
-        }));
-        const rewardAddressBalance = await superToken.methods.realtimeBalanceOf(network.rewardAddress, block.timestamp).call(block.number);
-        balances.push({
-            account: network.rewardAddress,
-            availableBalance: web3.utils.toBN(web3.utils.toBN(rewardAddressBalance.availableBalance))
-        });
-        const balancesSum = balances.reduce((acc, cur) => {
-            return acc.add(web3.utils.toBN(cur.availableBalance));
-        }, web3.utils.toBN(0));
+        let innerErrCnt = 0;
+        try {
+            //console.log("---");
+            const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
+            const symbol = await superToken.methods.symbol().call();
+            const totalSupply = await superToken.methods.totalSupply().call();
+            //console.log("Super Token", symbol, superToken._address);
+            const accounts = await getAllAccounts(superTokens[i]);
+            nrAccs += accounts.length;
+            //console.log("Number of Accounts", accounts.length);
+            const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.cfaAddress);
+            // skip wrong host version tokens
+            if ((await superToken.methods.getHost().call()).toLowerCase() !== network.hostAddress.toLowerCase()) continue;
+            const balances = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
+                try {
+                    const rtb = await superToken.methods.realtimeBalanceOf(account, block.timestamp).call(block.number);
+                    const availableBalance = web3.utils.toBN(rtb.availableBalance);
+                    const netFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call(block.number));
+                    if (netFlow.ltn(0)) {
+                        nrAccsWithNegFlow++;
+                    }
+                    return {
+                        account,
+                        availableBalance: rtb.availableBalance.toString(),
+                        criticalForSeconds: parseInt((availableBalance.ltn(0) && netFlow.ltn(0) ? availableBalance.div(netFlow).toString() : "0")),
+                        criticalFor: (availableBalance.ltn(0) && netFlow.ltn(0) ? availableBalance.div(netFlow).toString() : "0")/3600 + " hours",
+                    };
+                } catch (e) {
+//                    console.error(`${symbol} ${account}: ${e}`);
+                    innerErrCnt++;
+                }
+            }));
+            if (innerErrCnt > 0) {
+                console.log(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
+                errExists = true;
+            }
+            const rewardAddressBalance = await superToken.methods.realtimeBalanceOf(network.rewardAddress, block.timestamp).call(block.number);
+            balances.push({
+                account: network.rewardAddress,
+                availableBalance: web3.utils.toBN(web3.utils.toBN(rewardAddressBalance.availableBalance))
+            });
+            const balancesSum = balances.reduce((acc, cur) => {
+                return acc.add(web3.utils.toBN(cur.availableBalance));
+            }, web3.utils.toBN(0));
 
-        const relevantNegativeBalances = balances.filter(account => account.criticalForSeconds > reportCriticalAfter);
-        if (relevantNegativeBalances.length > 0) {
-            console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds`);
-            console.log(relevantNegativeBalances.map(a => `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, critical for ${a.criticalFor}`));
-            negativeExists = true;
+            const relevantNegativeBalances = balances.filter(account => account.criticalForSeconds > reportCriticalAfter);
+            if (relevantNegativeBalances.length > 0) {
+                console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds`);
+                console.log(relevantNegativeBalances.map(a => `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, critical for ${a.criticalFor}`));
+                negativeExists = true;
+            }
+            nrAccsCritical += relevantNegativeBalances.length;
+            
+            const excessSupply = web3.utils.toBN(totalSupply).sub(balancesSum);
+            //console.log("Reward account balance", rewardAddressBalance.availableBalance / 1e18);
+            //console.log("Balances sum", balancesSum.toString() / 1e18);
+            //console.log("Total supply", totalSupply.toString() / 1e18);
+         
+            /*
+            console.log(printf("\` %-10s | %7d | %12.3f | %14.0f | %14.0f \`", 
+                symbol, 
+                accounts.length, 
+                rewardAddressBalance.availableBalance / 1e18, 
+                balancesSum.toString() / 1e18, 
+                totalSupply.toString() / 1e18
+            ));
+            */
+            
+            await asleep(1000);
+        } catch (e) {
+            console.error(e);
+            errCnt++;
         }
-        
-        const excessSupply = web3.utils.toBN(totalSupply).sub(balancesSum);
-        //console.log("Reward account balance", rewardAddressBalance.availableBalance / 1e18);
-        //console.log("Balances sum", balancesSum.toString() / 1e18);
-        //console.log("Total supply", totalSupply.toString() / 1e18);
-        
-        console.log(printf("\` %-10s | %7d | %12.3f | %14.0f | %14.0f \`", 
-            symbol, 
-            accounts.length, 
-            rewardAddressBalance.availableBalance / 1e18, 
-            balancesSum.toString() / 1e18, 
-            totalSupply.toString() / 1e18
-        ));
-        
-        await asleep(1000);
+    }
+    if (errCnt > 0) {
+        console.log(`ERR: ${errCnt} non-balance queries failed`);
+        errExists = true;
     }
     //console.log("```");
+    console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical`);
 
     if (negativeExists) {
-        console.log(":warning: <!channel> NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.");
+        console.log(`:rotating_light: <!channel> ${process.env.NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
     } else {
-        console.log(":white_check_mark: No negative accounts detected.");
+        console.log(`${errExists ? ":warning:" : ":white_check_mark:"} ${process.env.NETWORK_NAME}: No neg. accs detected`);
     }
 })();
 
