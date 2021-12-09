@@ -7,8 +7,16 @@ const NETWORKS = {
         cfaAddress: "0xEd6BcbF6907D4feEEe8a8875543249bEa9D308E8",
         rewardAddress: "0xd15D5d0f5b1b56A4daEF75CfE108Cb825E97d015",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-goerli",
-        web3ProviderUrl: "https://goerli-eth-node-1.dev.superfluid.dev",
+        web3ProviderUrl: process.env.GOERLI_PROVIDER_URL || "https://goerli-eth-node-1.dev.superfluid.dev",
     },
+    kovan: {
+        hostAddress: "0xF0d7d1D47109bA426B9D8A3Cde1941327af1eea3",
+        cfaAddress: "0xECa8056809e7e8db04A8fF6e4E82cD889a46FE2F",
+        rewardAddress: "0xd15D5d0f5b1b56A4daEF75CfE108Cb825E97d015",
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-kovan",
+        web3ProviderUrl: process.env.KOVAN_PROVIDER_URL || "https://kovan-eth-node-1.dev.superfluid.dev",
+    },
+
     xdai: {
         hostAddress: "0x2dFe937cD98Ab92e59cF3139138f18c823a4efE7",
         cfaAddress: "0xEbdA4ceF883A7B12c4E669Ebc58927FBa8447C7D",
