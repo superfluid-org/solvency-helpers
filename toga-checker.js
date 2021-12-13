@@ -70,7 +70,9 @@ async function getSuperTokens(graphAPI) {
             }
         }
         console.log(`Network: ${networkName}`);
+        console.log('```');
         console.table(tblPIC, ["name", "symbol", "PIC", "Bond", "ExitRatePerDay"]);
+        console.log('```');
         //console.table(tblNoPIC);
     //} 
 })();
