@@ -51,7 +51,7 @@ async function getSuperTokens(graphAPI) {
         for (let i = 0; i < superTokens.length; i++) {
             try {
                 const picInfo = await toga.methods.getCurrentPICInfo(superTokens[i].id).call();
-                if(picInfo.bond !== '0') {
+                if(picInfo.bond !== '0' || picInfo.pic !== "0x0000000000000000000000000000000000000000") {
                     tblPIC.push({
                         name: superTokens[i].name,
                         symbol: superTokens[i].symbol,
