@@ -1,7 +1,7 @@
 const togaABI = require("./abis/TOGA.json");
 const Web3 = require("web3");
 const axios = require("axios");
-const { wad4human } = require("@decentral.ee/web3-helpers");
+const { wad4human, toBN } = require("@decentral.ee/web3-helpers");
 
 /*CONFIGS*/
 const NETWORKS = {
@@ -57,8 +57,8 @@ async function getSuperTokens(graphAPI) {
                         symbol: superTokens[i].symbol,
                         PIC: picInfo.pic,
                         Bond: wad4human(picInfo.bond),
-                        ExitRatePerDay: wad4human(picInfo.exitRate * 3600 * 24) 
-                    })
+                        ExitRatePerDay: wad4human(toBN(picInfo.exitRate).mul(toBN(3600 * 24))) 
+                    });
                 } else {
                     tblNoPIC.push({
                         name: superTokens[i].name,
