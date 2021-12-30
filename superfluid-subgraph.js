@@ -7,14 +7,14 @@ const NETWORKS = {
         cfaAddress: "0xEd6BcbF6907D4feEEe8a8875543249bEa9D308E8",
         rewardAddress: "0xd15D5d0f5b1b56A4daEF75CfE108Cb825E97d015",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-goerli",
-        web3ProviderUrl: process.env.GOERLI_PROVIDER_URL || "https://goerli-eth-node-1.dev.superfluid.dev",
+        web3ProviderUrl: process.env.GOERLI_PROVIDER_URL || "http://eth-goerli.web3-infra.superfluid.dev",
     },
     kovan: {
         hostAddress: "0xF0d7d1D47109bA426B9D8A3Cde1941327af1eea3",
         cfaAddress: "0xECa8056809e7e8db04A8fF6e4E82cD889a46FE2F",
         rewardAddress: "0xd15D5d0f5b1b56A4daEF75CfE108Cb825E97d015",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-kovan",
-        web3ProviderUrl: process.env.KOVAN_PROVIDER_URL || "https://kovan-eth-node-1.dev.superfluid.dev",
+        web3ProviderUrl: process.env.KOVAN_PROVIDER_URL || "http://eth-kovan.web3-infra.superfluid.dev",
     },
 
     xdai: {
@@ -22,7 +22,7 @@ const NETWORKS = {
         cfaAddress: "0xEbdA4ceF883A7B12c4E669Ebc58927FBa8447C7D",
         rewardAddress: "0x8e8F05f1aD16D20e66Bd0922b510332104ddAc7B",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-xdai",
-        web3ProviderUrl: process.env.XDAI_PROVIDER_URL || "http://xdai-mainnet-1.web3-nodes.superfluid.dev:8545",
+        web3ProviderUrl: process.env.XDAI_PROVIDER_URL || "http://xdai-mainnet.web3-infra.superfluid.dev",
         batchLiquidatorAddress: "0xf4b9bBFc34dc8cc392bC97c76bc60D8350D83172",
     },
     matic: {
@@ -30,7 +30,7 @@ const NETWORKS = {
         cfaAddress: "0x6EeE6060f715257b970700bc2656De21dEdF074C",
         rewardAddress: "0x1EB3FAA360bF1f093F5A18d21f21f13D769d044A",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-matic",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://matic-mainnet-3.web3-nodes.superfluid.dev:8545",
+        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://polygon-mainnet.web3-infra.superfluid.dev",
         batchLiquidatorAddress: "0xE6E151C28F6EC8DD696637ac2bf5d24adB527566",
     },
 };
