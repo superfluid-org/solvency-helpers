@@ -8,12 +8,12 @@ const NETWORKS = {
     xdai: {
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-xdai",
         web3ProviderUrl: process.env.XDAI_PROVIDER_URL || "http://xdai-mainnet-1.web3-nodes.superfluid.dev:8545",
-        toga: "0x0942570634A80bcd096873afC9b112A900492fd7"
+        toga: "0xb7DE52F4281a7a276E18C40F94cd93159C4A2d22"
     },
     matic: {
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-matic",
         web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://matic.hetzner-buck-1.web3-infra.superfluid.dev/rpc",
-        toga: "0x1b18770E5198983AF04B3735d01E09A57d27bD43"
+        toga: "0x6AEAeE5Fd4D05A741723D752D30EE4D72690A8f7"
     },
 };
 
@@ -69,7 +69,7 @@ async function getSuperTokens(graphAPI) {
                 console.error(err);
             }
         }
-        console.log(`Network: ${networkName}`);
+        console.log(`Network: ${networkName} - TOGAv2`);
         console.log('```');
         console.table(tblPIC, ["name", "symbol", "PIC", "Bond", "ExitRatePerDay"]);
         console.log('```');
