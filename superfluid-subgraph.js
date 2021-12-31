@@ -6,33 +6,41 @@ const NETWORKS = {
         hostAddress: "0x22ff293e14F1EC3A09B137e9e06084AFd63adDF9",
         cfaAddress: "0xEd6BcbF6907D4feEEe8a8875543249bEa9D308E8",
         rewardAddress: "0xd15D5d0f5b1b56A4daEF75CfE108Cb825E97d015",
-        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-goerli",
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-goerli",
         web3ProviderUrl: process.env.GOERLI_PROVIDER_URL || "http://eth-goerli.web3-infra.superfluid.dev",
     },
     kovan: {
         hostAddress: "0xF0d7d1D47109bA426B9D8A3Cde1941327af1eea3",
         cfaAddress: "0xECa8056809e7e8db04A8fF6e4E82cD889a46FE2F",
         rewardAddress: "0xd15D5d0f5b1b56A4daEF75CfE108Cb825E97d015",
-        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-kovan",
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-kovan",
         web3ProviderUrl: process.env.KOVAN_PROVIDER_URL || "http://eth-kovan.web3-infra.superfluid.dev",
     },
 
     xdai: {
         hostAddress: "0x2dFe937cD98Ab92e59cF3139138f18c823a4efE7",
         cfaAddress: "0xEbdA4ceF883A7B12c4E669Ebc58927FBa8447C7D",
-        rewardAddress: "0x8e8F05f1aD16D20e66Bd0922b510332104ddAc7B",
-        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-xdai",
+        //rewardAddress: "",
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-xdai",
         web3ProviderUrl: process.env.XDAI_PROVIDER_URL || "http://xdai-mainnet.web3-infra.superfluid.dev",
         batchLiquidatorAddress: "0xf4b9bBFc34dc8cc392bC97c76bc60D8350D83172",
     },
     matic: {
         hostAddress: "0x3E14dC1b13c488a8d5D310918780c983bD5982E7",
         cfaAddress: "0x6EeE6060f715257b970700bc2656De21dEdF074C",
-        rewardAddress: "0x1EB3FAA360bF1f093F5A18d21f21f13D769d044A",
-        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/superfluid-matic",
+        //rewardAddress: "",
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-matic",
         web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://polygon-mainnet.web3-infra.superfluid.dev",
         batchLiquidatorAddress: "0xE6E151C28F6EC8DD696637ac2bf5d24adB527566",
     },
+    mumbai: {
+        hostAddress: "0xEB796bdb90fFA0f28255275e16936D25d3418603",
+        cfaAddress: "0x49e565Ed1bdc17F3d220f72DF0857C26FA83F873",
+        //rewardAddress: "",
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-mumbai",
+        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://polygon-mumbai.web3-infra.superfluid.dev",
+        //batchLiquidatorAddress: "",
+    }
 };
 
 let network;
@@ -60,23 +68,32 @@ async function graphql(query, { accept } = {}) {
 }
 
 async function queryAllPages(queryFn, toItems, itemFn) {
-    let skip = 0;
+    let lastId = "";
     const items = [];
     while (true) {
-        const res = await graphql(queryFn(skip));
+        //console.log(`query with lastId ${lastId} ...`);
+        const res = await graphql(queryFn(lastId));
+        //console.log("done");
         if (res.status !== 200 || res.data.errors) {
             console.error(res.data);
             process.exit(2);
         }
         const newItems = toItems(res);
-        items.splice(skip, 0,  ...newItems.map(itemFn));
-        if (newItems.length < MAX_ITEMS) break;
-        else skip += MAX_ITEMS;
+        //console.log(`newItems: ${newItems.map(itemFn)}`);
+        //items.splice(skip, 0,  ...newItems.map(itemFn));
+        items.push(...newItems.map(itemFn));
+        //console.log(`items now has ${items.length} elements`);
+        if (newItems.length < MAX_ITEMS) {
+            break;
+        } else {
+            lastId = newItems[newItems.length-1].id;
+            //console.log(`advanced lastId to ${lastId}`);
+        }
     }
     return items;
 }
 
-function getAllSuperTokens() {
+function getAllSuperTokensV0() {
     return queryAllPages((skip) => `{
           tokens (first: ${MAX_ITEMS}, skip: ${skip}) {
             id
@@ -87,7 +104,24 @@ function getAllSuperTokens() {
     );
 }
 
-function getAllAccounts(token) {
+function getAllSuperTokens() {
+    //console.log("getAllSuperTokens...");
+    return queryAllPages((lastId) => `{
+          tokens (first: ${MAX_ITEMS},
+            where: {
+              id_gt: "${lastId}",
+              isSuperToken: true
+            }
+          ) {
+            id
+          }
+        }`,
+        res => res.data.data.tokens,
+        i => i.id
+    );
+}
+
+function getAllAccountsV0(token) {
     return Promise.all(Array.from("0123456789abcdefABCDEF").map((a) => (queryAllPages((skip) => `query {
             accountWithTokens(where: {
                 token: "${token}",
@@ -101,7 +135,29 @@ function getAllAccounts(token) {
     )))).then(results => Array.from(new Set(results.flat()/*.concat([network.rewardAddress])*/.map(i => i.toLowerCase()))));
 }
 
+function getAllAccounts(token) {
+    //console.log(`getAllAccounts(${token})...`);
+    return queryAllPages((lastId) => `{
+          accountTokenSnapshots (first: ${MAX_ITEMS},
+            where: { 
+                id_gt: "${lastId}",
+                token: "${token}"
+            }
+          ) {
+            id
+            account {
+              id
+            }
+          }
+        }`,
+        res => res.data.data.accountTokenSnapshots,
+        i => i.account.id
+    );
+}
+
 function getAllOutFlows(account) {
+    console.error("TODO: port to subgraph v1");
+    process.exit(1);
     return queryAllPages((skip) => `{
           accounts(where: {
             id: "${account}"

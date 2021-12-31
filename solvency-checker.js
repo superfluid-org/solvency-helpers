@@ -75,11 +75,13 @@ function truncateStr (str, maxLen, end = '…')  {
                 console.log(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
                 errExists = true;
             }
+            /*
             const rewardAddressBalance = await superToken.methods.realtimeBalanceOf(network.rewardAddress, block.timestamp).call(block.number);
             balances.push({
                 account: network.rewardAddress,
                 availableBalance: web3.utils.toBN(web3.utils.toBN(rewardAddressBalance.availableBalance))
             });
+             */
             const balancesSum = balances.reduce((acc, cur) => {
                 return acc.add(web3.utils.toBN(cur.availableBalance));
             }, web3.utils.toBN(0));
