@@ -29,11 +29,15 @@ function truncateStr (str, maxLen, end = '…')  {
     //console.log("```");
     const network = selectNetwork(process.env.NETWORK_NAME);
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
-    
+
     const superTokens = await getAllSuperTokens();
     console.log(`Checking ${superTokens.length} ${process.env.NETWORK_NAME} tokens… (RPC: ${network.web3ProviderUrl})`);
     const web3 = new Web3(network.web3ProviderUrl);
     const block = await web3.eth.getBlock("latest");
+    //get SF sentinels balances
+    console.log("Sentinel Balances:");
+    console.log(`0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf balance: ${wad4human(await web3.eth.getBalance("0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf"))}`);
+    console.log(`0xc20a5455035ab593682cf9b9916b9407cc9e47f3 balance: ${wad4human(await web3.eth.getBalance("0xc20a5455035ab593682cf9b9916b9407cc9e47f3"))}\n`);
     //console.log("\` --------------------------------------------------------------------------\`")
 //    console.log("\` TOKEN SYM  | NR ACCS | REWARDS BAL  |  SUM BALANCES  |  TOTAL SUPPLY  \`");
 //    console.log("\` --------------------------------------------------------------------- \`")
@@ -93,22 +97,22 @@ function truncateStr (str, maxLen, end = '…')  {
                 negativeExists = true;
             }
             nrAccsCritical += relevantNegativeBalances.length;
-            
+
             const excessSupply = web3.utils.toBN(totalSupply).sub(balancesSum);
             //console.log("Reward account balance", rewardAddressBalance.availableBalance / 1e18);
             //console.log("Balances sum", balancesSum.toString() / 1e18);
             //console.log("Total supply", totalSupply.toString() / 1e18);
-         
+
             /*
-            console.log(printf("\` %-10s | %7d | %12.3f | %14.0f | %14.0f \`", 
-                symbol, 
-                accounts.length, 
-                rewardAddressBalance.availableBalance / 1e18, 
-                balancesSum.toString() / 1e18, 
+            console.log(printf("\` %-10s | %7d | %12.3f | %14.0f | %14.0f \`",
+                symbol,
+                accounts.length,
+                rewardAddressBalance.availableBalance / 1e18,
+                balancesSum.toString() / 1e18,
                 totalSupply.toString() / 1e18
             ));
             */
-            
+
             await asleep(1000);
         } catch (e) {
             console.error(e);
