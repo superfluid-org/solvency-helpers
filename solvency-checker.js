@@ -33,7 +33,6 @@ function truncateStr (str, maxLen, end = '…')  {
     const superTokens = await getAllSuperTokens();
     console.log(`Checking ${superTokens.length} ${process.env.NETWORK_NAME} tokens… (RPC: ${network.web3ProviderUrl})`);
     const web3 = new Web3(network.web3ProviderUrl);
-    const block = await web3.eth.getBlock("latest");
     //get SF sentinels balances
     console.log("Sentinel Balances:");
     console.log(`0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf balance: ${wad4human(await web3.eth.getBalance("0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf"))}`);
@@ -58,9 +57,9 @@ function truncateStr (str, maxLen, end = '…')  {
             if ((await superToken.methods.getHost().call()).toLowerCase() !== network.hostAddress.toLowerCase()) continue;
             const balances = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
                 try {
-                    const rtb = await superToken.methods.realtimeBalanceOf(account, block.timestamp).call(block.number);
+                    const rtb = await superToken.methods.realtimeBalanceOfNow(account).call();
                     const availableBalance = web3.utils.toBN(rtb.availableBalance);
-                    const netFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call(block.number));
+                    const netFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call());
                     if (netFlow.ltn(0)) {
                         nrAccsWithNegFlow++;
                     }
