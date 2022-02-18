@@ -33,6 +33,7 @@ function truncateStr (str, maxLen, end = '…')  {
     const superTokens = await getAllSuperTokens();
     console.log(`Checking ${superTokens.length} ${process.env.NETWORK_NAME} tokens… (RPC: ${network.web3ProviderUrl})`);
     const web3 = new Web3(network.web3ProviderUrl);
+    const blockNumber = await web3.eth.getBlockNumber();
     //get SF sentinels balances
     console.log("Sentinel Balances:");
     console.log(`0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf balance: ${wad4human(await web3.eth.getBalance("0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf"))}`);
@@ -129,6 +130,10 @@ function truncateStr (str, maxLen, end = '…')  {
         console.log(`:rotating_light: <!channel> ${process.env.NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
     } else {
         console.log(`${errExists ? ":warning:" : ":white_check_mark:"} ${process.env.NETWORK_NAME}: No neg. accs detected`);
+    }
+
+    if(await web3.eth.getBlockNumber() === blockNumber) {
+        console.log(`:rotating_light: blockNumber not moving`);
     }
 })();
 
