@@ -36,7 +36,7 @@ NETWORKS = [
     const network = NETWORKS.filter(n => n.name === process.env.NETWORK_NAME)[0];
     if(network === undefined) {
         console.error(`unknown/unsupported network: ${process.env.NETWORK_NAME}`);
-        system.exit(1);
+        process.exit(1);
     }
     
     const watchList = require(`./topup-list_${network.name}.json`);
