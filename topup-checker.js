@@ -10,7 +10,7 @@ const ICFAv1 = require("./abis/ICFAv1.json");
 const IERC20 = require("./abis/IERC20.json");
 
 const LIST = require("./topup-list.json");
-const minRunwayS = process.env.MIN_RUNWAY || 24;
+const minRunwayS = process.env.MIN_RUNWAY*3600 || 24*3600;
 
 // TODO: replace with external canonical network list
 NETWORKS = [
@@ -52,6 +52,8 @@ NETWORKS = [
     
     const symbolCache = {};
     const table = [];
+    let raiseAlarm = false;
+    
     for(const item of LIST) {
         //console.log(`processing ${item.token}, ${item.account}...`);
         
@@ -64,7 +66,7 @@ NETWORKS = [
         
         const netFlow = await cfa.getNetFlow(item.token, item.account);
         
-        const runWayS = bal.div(netFlow);
+        const runWayS = bal.div(netFlow.mul(-1));
         
         table.push({
             Account: item.account,
@@ -72,11 +74,16 @@ NETWORKS = [
             Symbol: tokenSymbol,
             Balance: wad4human(bal),
             NetFlowDaily: wad4human(netFlow.mul(3600*24)),
-            RunWayHours: netFlow.gt(0) ? '∞' : runWayS.div(-3600).toString()
+            RunWayHours: netFlow.gt(0) ? '∞' : runWayS.div(3600).toString()
         });
+        raiseAlarm = raiseAlarm || (netFlow.lt(0) && runWayS.lt(minRunwayS));
     }
     console.log(`Network: ${network.name} - top-up checker`);
     console.log('```');
     console.table(table, ["Account", "Token", "Symbol", "Balance", "NetFlowDaily", "RunWayHours"]);
     console.log('```');
+    
+    if(raiseAlarm) {
+        console.log(`:rotating_light: <!channel> account with insufficient runway (< ${minRunwayS / 3600}h) detected.`);
+    }
 })();
