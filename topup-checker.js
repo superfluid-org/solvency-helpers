@@ -9,7 +9,6 @@ const ISuperfluidAbi = require("./abis/ISuperfluid.json");
 const ICFAv1 = require("./abis/ICFAv1.json");
 const IERC20 = require("./abis/IERC20.json");
 
-const LIST = require("./topup-list.json");
 const minRunwayS = process.env.MIN_RUNWAY*3600 || 24*3600;
 
 // TODO: replace with external canonical network list
@@ -40,6 +39,8 @@ NETWORKS = [
         system.exit(1);
     }
     
+    const watchList = require(`./topup-list_${network.name}.json`);
+    
     const rpc = `http://${network.name}.web3-infra.superfluid.dev`;
     const provider = new ethers.providers.JsonRpcProvider(rpc);
     
@@ -54,7 +55,7 @@ NETWORKS = [
     const table = [];
     let raiseAlarm = false;
     
-    for(const item of LIST) {
+    for(const item of watchList) {
         //console.log(`processing ${item.token}, ${item.account}...`);
         
         token = new ethers.Contract(item.token, IERC20, provider);
