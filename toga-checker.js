@@ -7,7 +7,7 @@ const { wad4human, toBN } = require("@decentral.ee/web3-helpers");
 const NETWORKS = {
     xdai: {
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-xdai",
-        web3ProviderUrl: process.env.XDAI_PROVIDER_URL || "http://xdai-mainnet-1.web3-nodes.superfluid.dev:8545",
+        web3ProviderUrl: process.env.XDAI_PROVIDER_URL || "http://xdai-mainnet.web3-infra.superfluid.dev",
         toga: "0xb7DE52F4281a7a276E18C40F94cd93159C4A2d22"
     },
     matic: {
