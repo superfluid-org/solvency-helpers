@@ -71,7 +71,7 @@ NETWORKS = [
             Token: item.token,
             Symbol: tokenSymbol,
             Balance: wad4human(bal),
-            NetFlowDaily: wad4human(netFlow),
+            NetFlowDaily: wad4human(netFlow.mul(3600*24)),
             RunWayHours: netFlow.gt(0) ? '∞' : runWayS.div(-3600).toString()
         });
     }
