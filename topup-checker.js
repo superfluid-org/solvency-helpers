@@ -71,8 +71,7 @@ NETWORKS = [
         
         table.push({
             Account: item.account,
-            Token: item.token,
-            Symbol: tokenSymbol,
+            Token: tokenSymbol,
             Balance: wad4human(bal),
             NetFlowDaily: wad4human(netFlow.mul(3600*24)),
             RunWayHours: netFlow.gt(0) ? '∞' : runWayS.div(3600).toString()
@@ -81,7 +80,7 @@ NETWORKS = [
     }
     console.log(`Network: ${network.name} - top-up checker`);
     console.log('```');
-    console.table(table, ["Account", "Token", "Symbol", "Balance", "NetFlowDaily", "RunWayHours"]);
+    console.table(table, ["Account", "Token", "Balance", "NetFlowDaily", "RunWayHours"]);
     console.log('```');
     
     if(raiseAlarm) {
