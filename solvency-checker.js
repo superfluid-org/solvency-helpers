@@ -13,6 +13,7 @@ done
 */
 
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
+const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
 
 let negativeExists = false;
 let errExists = false;
@@ -33,6 +34,13 @@ function truncateStr (str, maxLen, end = '…')  {
     const superTokens = await getAllSuperTokens();
     console.log(`Checking ${superTokens.length} ${process.env.NETWORK_NAME} tokens… (RPC: ${network.web3ProviderUrl})`);
     const web3 = new Web3(network.web3ProviderUrl);
+    
+    // check chain/RPC health
+    const curBlockNr = await web3.eth.getBlockNumber();
+    const curBlock = await web3.eth.getBlock(curBlockNr);
+    const rpcDriftS = Math.floor(Date.now() / 1000) - curBlock.timestamp;
+    console.log(`last block: ${curBlock.number}, RPC drift: ${rpcDriftS} s ${rpcDriftS > RPC_DRIFT_WARN_THRESHOLD ? "<- :rotating_light: <!channel>" : ""}`);
+    
     //get SF sentinels balances
     console.log("Sentinel Balances:");
     console.log(`0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf balance: ${wad4human(await web3.eth.getBalance("0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf"))}`);
