@@ -14,12 +14,12 @@ const minRunwayS = process.env.MIN_RUNWAY*3600 || 24*3600;
 NETWORKS = [
     { chainId: 5, hostAddr: "0x22ff293e14F1EC3A09B137e9e06084AFd63adDF9", name: "eth-goerli" },
     { chainId: 42, hostAddr: "0xF0d7d1D47109bA426B9D8A3Cde1941327af1eea3", name: "eth-kovan" },
-    { chainId: 4, hostAddr: "0xeD5B5b32110c3Ded02a07c8b8e97513FAfb883B6" }, // eth-rinkeby
-    { chainId: 3, hostAddr: "0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2" }, // eth-ropsten
-    { chainId: 80001, hostAddr: "0xEB796bdb90fFA0f28255275e16936D25d3418603" }, // polygon-mumbai
-    { chainId: 69, hostAddr: "0x74b57883f8ce9F2BD330286E884CfD8BB24AC4ED" }, // optimism-kovan
-    { chainId: 421611, hostAddr: "0xE01F8743677Da897F4e7De9073b57Bf034FC2433" }, // arbitrum-rinkeby
-    { chainId: 43113, hostAddr: "0xf04F2C525819691ed9ABD3D2B7109E1633795e68" }, // avalanche-fuji
+    { chainId: 4, hostAddr: "0xeD5B5b32110c3Ded02a07c8b8e97513FAfb883B6", name: "eth-rinkeby" },
+    { chainId: 3, hostAddr: "0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2", name: "eth-ropsten" },
+    { chainId: 80001, hostAddr: "0xEB796bdb90fFA0f28255275e16936D25d3418603", name: "polygon-mumbai" },
+    { chainId: 69, hostAddr: "0x74b57883f8ce9F2BD330286E884CfD8BB24AC4ED", name: "optimism-kovan" },
+    { chainId: 421611, hostAddr: "0xE01F8743677Da897F4e7De9073b57Bf034FC2433", name: "arbitrum-rinkeby" };
+    { chainId: 43113, hostAddr: "0xf04F2C525819691ed9ABD3D2B7109E1633795e68", name: "avalanche-fuji" },
 
     { chainId: 137, hostAddr: "0x3E14dC1b13c488a8d5D310918780c983bD5982E7", name: "polygon-mainnet" },
     { chainId: 100, hostAddr: "0x2dFe937cD98Ab92e59cF3139138f18c823a4efE7", name: "xdai-mainnet" },
