@@ -1,7 +1,6 @@
-// checks the funding status of the accounts listed in topup-addresses.json
-// report: address, balance, flowrate, runway
-// if runway <24h
-// env: NETWORK_NAME, MIN_RUNWAY_H
+// checks the funding status of the accounts listed in WATCHLIST_FILE, prints a report and triggers and alert if sender solvency is < MIN_RUNWAY_H
+// mandatory env: NETWORK_NAME, WATCHLIST_FILE
+// optional env: MIN_RUNWAY_H
 
 const { ethers, BigNumber, utils } = require("ethers");
 const { wad4human, toBN } = require("@decentral.ee/web3-helpers");
@@ -38,8 +37,11 @@ NETWORKS = [
         console.error(`unknown/unsupported network: ${process.env.NETWORK_NAME}`);
         process.exit(1);
     }
-    
-    const watchList = require(`./topup-list_${network.name}.json`);
+    if (process.env.WATCHLIST_FILE === undefined) {
+        console.error("missing env var WATCHLIST_FILE");
+        process.exit(1);
+    }
+    const watchList = require(`./${process.env.WATCHLIST_FILE}`);
     
     const rpc = `http://${network.name}.web3-infra.superfluid.dev`;
     const provider = new ethers.providers.JsonRpcProvider(rpc);
