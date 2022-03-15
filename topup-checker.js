@@ -18,7 +18,7 @@ NETWORKS = [
     { chainId: 3, hostAddr: "0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2", name: "eth-ropsten" },
     { chainId: 80001, hostAddr: "0xEB796bdb90fFA0f28255275e16936D25d3418603", name: "polygon-mumbai" },
     { chainId: 69, hostAddr: "0x74b57883f8ce9F2BD330286E884CfD8BB24AC4ED", name: "optimism-kovan" },
-    { chainId: 421611, hostAddr: "0xE01F8743677Da897F4e7De9073b57Bf034FC2433", name: "arbitrum-rinkeby" };
+    { chainId: 421611, hostAddr: "0xE01F8743677Da897F4e7De9073b57Bf034FC2433", name: "arbitrum-rinkeby" },
     { chainId: 43113, hostAddr: "0xf04F2C525819691ed9ABD3D2B7109E1633795e68", name: "avalanche-fuji" },
 
     { chainId: 137, hostAddr: "0x3E14dC1b13c488a8d5D310918780c983bD5982E7", name: "polygon-mainnet" },
