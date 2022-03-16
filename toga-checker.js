@@ -12,8 +12,18 @@ const NETWORKS = {
     },
     matic: {
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-matic",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://matic.hetzner-buck-1.web3-infra.superfluid.dev/rpc",
+        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://polygon-mainnet.web3-infra.superfluid.dev",
         toga: "0x6AEAeE5Fd4D05A741723D752D30EE4D72690A8f7"
+    },
+    opmainnet: {
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-optimism-mainnet",
+        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://optimism-mainnet.web3-infra.superfluid.dev",
+        toga: "0xA3c8502187fD7a7118eAD59dc811281448946C8f"
+    },
+    arbone: {
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-arbitrum-one",
+        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://arbitrum-one.web3-infra.superfluid.dev",
+        toga: "0xFC63B7C762B10670Eda15cF3ca3970bCDB28C9eF"
     },
 };
 

@@ -40,7 +40,23 @@ const NETWORKS = {
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-mumbai",
         web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://polygon-mumbai.web3-infra.superfluid.dev",
         //batchLiquidatorAddress: "",
-    }
+    },
+    opmainnet: {
+        hostAddress: "0x567c4B141ED61923967cA25Ef4906C8781069a10",
+        cfaAddress: "0x204C6f131bb7F258b2Ea1593f5309911d8E458eD",
+        //rewardAddress: "",
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-optimism-mainnet",
+        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://optimism-mainnet.web3-infra.superfluid.dev",
+        batchLiquidatorAddress: "0xEe1bd2C743BF40B1206B090Fa9aB27A0C57d7B90",
+    },
+    arbone: {
+        hostAddress: "0xCf8Acb4eF033efF16E8080aed4c7D5B9285D2192",
+        cfaAddress: "0x731FdBB12944973B500518aea61942381d7e240D",
+        //rewardAddress: "",
+        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-arbitrum-one",
+        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://arbitrum-one.web3-infra.superfluid.dev",
+        batchLiquidatorAddress: "0xA87F76e99f6C8Ff8996d14f550ceF47f193D9A09",
+    },
 };
 
 let network;
