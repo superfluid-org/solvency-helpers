@@ -20,33 +20,33 @@ const NETWORKS = {
         hostAddress: "0xeD5B5b32110c3Ded02a07c8b8e97513FAfb883B6",
         cfaAddress: "0xF4C5310E51F6079F601a5fb7120bC72a70b96e2A",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-rinkeby",
-        web3ProviderUrl: process.env.KOVAN_PROVIDER_URL || "http://eth-rinkeby.web3-infra.superfluid.dev",
+        web3ProviderUrl: process.env.RINKEBY_PROVIDER_URL || "http://eth-rinkeby.web3-infra.superfluid.dev",
     },
     ropsten: {
         hostAddress: "0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2",
         cfaAddress: "0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-ropsten",
-        web3ProviderUrl: process.env.KOVAN_PROVIDER_URL || "http://eth-ropsten.web3-infra.superfluid.dev",
+        web3ProviderUrl: process.env.ROPSTEN_PROVIDER_URL || "http://eth-ropsten.web3-infra.superfluid.dev",
     },
     mumbai: {
         hostAddress: "0xEB796bdb90fFA0f28255275e16936D25d3418603",
         cfaAddress: "0x49e565Ed1bdc17F3d220f72DF0857C26FA83F873",
         //rewardAddress: "",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-mumbai",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://polygon-mumbai.web3-infra.superfluid.dev",
+        web3ProviderUrl: process.env.MUMBAI_PROVIDER_URL || "http://polygon-mumbai.web3-infra.superfluid.dev",
         //batchLiquidatorAddress: "",
     },
     opkovan: {
         hostAddress: "0x74b57883f8ce9F2BD330286E884CfD8BB24AC4ED",
         cfaAddress: "0x523481a8a5455efB1F301C6e00B5525Eb12a51da",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-optimism-kovan",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://optimism-kovan.web3-infra.superfluid.dev",
+        web3ProviderUrl: process.env.OPKOVAN_PROVIDER_URL || "http://optimism-kovan.web3-infra.superfluid.dev",
     },
     arbrinkeby: {
         hostAddress: "0xE01F8743677Da897F4e7De9073b57Bf034FC2433",
         cfaAddress: "0xcA0569223e56B479FaC6d554FA0D3867A4384657",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-arbitrum-rinkeby",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://arbitrum-rinkeby.web3-infra.superfluid.dev",
+        web3ProviderUrl: process.env.ARBRINKEBY_PROVIDER_URL || "http://arbitrum-rinkeby.web3-infra.superfluid.dev",
     },
 
     // mainnets
@@ -71,7 +71,7 @@ const NETWORKS = {
         cfaAddress: "0x204C6f131bb7F258b2Ea1593f5309911d8E458eD",
         //rewardAddress: "",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-optimism-mainnet",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://optimism-mainnet.web3-infra.superfluid.dev",
+        web3ProviderUrl: process.env.OPMAINNET_PROVIDER_URL || "http://optimism-mainnet.web3-infra.superfluid.dev",
         batchLiquidatorAddress: "0xEe1bd2C743BF40B1206B090Fa9aB27A0C57d7B90",
     },
     arbone: {
@@ -79,7 +79,7 @@ const NETWORKS = {
         cfaAddress: "0x731FdBB12944973B500518aea61942381d7e240D",
         //rewardAddress: "",
         theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-arbitrum-one",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://arbitrum-one.web3-infra.superfluid.dev",
+        web3ProviderUrl: process.env.ARBONE_PROVIDER_URL || "http://arbitrum-one.web3-infra.superfluid.dev",
         batchLiquidatorAddress: "0xA87F76e99f6C8Ff8996d14f550ceF47f193D9A09",
     },
 };
