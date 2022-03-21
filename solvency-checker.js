@@ -15,15 +15,25 @@ done
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
 
-let negativeExists = false;
+let triggerAlert = false;
 let errExists = false;
 let nrAccs = 0;
 let nrAccsWithNegFlow = 0;
 let nrAccsCritical = 0;
+let nrAccsP1 = 0; // in patrician period
 let nrAccsInsolvent = 0;
 
 function truncateStr (str, maxLen, end = '…')  {
     return str.length() <= maxLen ? str : str.substring(0, maxLen).concat(end);
+}
+
+function pppPeriodName(pppPeriodId) {
+    switch(pppPeriodId) {
+        case 1: return "patrician";
+        case 2: return "pleb";
+        case 3: return "pirate";
+        default: throw "invalid id";
+    }
 }
 
 (async () => {
@@ -66,19 +76,36 @@ function truncateStr (str, maxLen, end = '…')  {
             const balances = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
                 try {
                     const rtb = await superToken.methods.realtimeBalanceOfNow(account).call();
-                    const availableBalance = web3.utils.toBN(rtb.availableBalance);
+                    const availBalBN = web3.utils.toBN(rtb.availableBalance);
                     const netFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call());
+                    let pppPeriod = 2; // default plebs
                     if (netFlow.ltn(0)) {
                         nrAccsWithNegFlow++;
                     }
+                    if (availBalBN.ltn(0)) {
+                        nrAccsCritical++;
+                        if (await cfa.methods.isPatricianPeriodNow(superTokens[i], account).call()) {
+                            pppPeriod = 1;
+                            nrAccsP1++;
+                        }
+                        if (! await superToken.methods.isAccountSolventNow(account)) {
+                            pppPeriod = 3;
+                            nrAccsInsolvent++;
+                        }
+                    }
                     return {
                         account,
-                        availableBalance: rtb.availableBalance.toString(),
-                        criticalForSeconds: parseInt((availableBalance.ltn(0) && netFlow.ltn(0) ? availableBalance.div(netFlow).toString() : "0")),
-                        criticalFor: (availableBalance.ltn(0) && netFlow.ltn(0) ? availableBalance.div(netFlow).toString() : "0")/3600 + " hours",
+                        availableBalance: availBalBN.toString(),
+                        criticalForSeconds: parseInt((availBalBN.ltn(0) && netFlow.ltn(0)
+                            ? availBalBN.div(netFlow).toString()
+                            : "0")),
+                        criticalFor: (availBalBN.ltn(0) && netFlow.ltn(0)
+                            ? availBalBN.div(netFlow).toString()
+                            : "0")/3600 + " hours",
+                        pppPeriod
                     };
                 } catch (e) {
-//                    console.error(`${symbol} ${account}: ${e}`);
+                    //console.error(`${symbol} ${account}: ${e}`);
                     innerErrCnt++;
                 }
             }));
@@ -97,28 +124,12 @@ function truncateStr (str, maxLen, end = '…')  {
                 return acc.add(web3.utils.toBN(cur.availableBalance));
             }, web3.utils.toBN(0));
 
-            const relevantNegativeBalances = balances.filter(account => account.criticalForSeconds > reportCriticalAfter);
+            const relevantNegativeBalances = balances.filter(account => account.criticalForSeconds > reportCriticalAfter && account.pppPeriod > 1);
             if (relevantNegativeBalances.length > 0) {
-                console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds`);
-                console.log(relevantNegativeBalances.map(a => `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, critical for ${a.criticalFor}`));
-                negativeExists = true;
+                console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds outside patrician period`);
+                console.log(relevantNegativeBalances.map(a => `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(pppPeriod)}, critical for ${a.criticalFor}`));
+                triggerAlert = true;
             }
-            nrAccsCritical += relevantNegativeBalances.length;
-
-            const excessSupply = web3.utils.toBN(totalSupply).sub(balancesSum);
-            //console.log("Reward account balance", rewardAddressBalance.availableBalance / 1e18);
-            //console.log("Balances sum", balancesSum.toString() / 1e18);
-            //console.log("Total supply", totalSupply.toString() / 1e18);
-
-            /*
-            console.log(printf("\` %-10s | %7d | %12.3f | %14.0f | %14.0f \`",
-                symbol,
-                accounts.length,
-                rewardAddressBalance.availableBalance / 1e18,
-                balancesSum.toString() / 1e18,
-                totalSupply.toString() / 1e18
-            ));
-            */
 
             await asleep(1000);
         } catch (e) {
@@ -131,9 +142,9 @@ function truncateStr (str, maxLen, end = '…')  {
         errExists = true;
     }
     //console.log("```");
-    console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical`);
+    console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period)`);
 
-    if (negativeExists) {
+    if (triggerAlert) {
         console.log(`:rotating_light: <!channel> ${process.env.NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
     } else {
         console.log(`${errExists ? ":warning:" : ":white_check_mark:"} ${process.env.NETWORK_NAME}: No neg. accs detected`);
