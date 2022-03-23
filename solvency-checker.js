@@ -14,6 +14,7 @@ done
 
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
+const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT;
 
 let triggerAlert = false;
 let errExists = false;
@@ -51,13 +52,12 @@ function pppPeriodName(pppPeriodId) {
     const rpcDriftS = Math.floor(Date.now() / 1000) - curBlock.timestamp;
     console.log(`last block: ${curBlock.number}, RPC drift: ${rpcDriftS} s ${rpcDriftS > RPC_DRIFT_WARN_THRESHOLD ? "<- :rotating_light: <!channel>" : ""}`);
     
-    //get SF sentinels balances
-    console.log("Sentinel Balances:");
-    console.log(`0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf balance: ${wad4human(await web3.eth.getBalance("0xf9c29c1f5dbb82338b03f0b2a9a88d475c6fdcdf"))}`);
-    console.log(`0xc20a5455035ab593682cf9b9916b9407cc9e47f3 balance: ${wad4human(await web3.eth.getBalance("0xc20a5455035ab593682cf9b9916b9407cc9e47f3"))}\n`);
-    //console.log("\` --------------------------------------------------------------------------\`")
-//    console.log("\` TOKEN SYM  | NR ACCS | REWARDS BAL  |  SUM BALANCES  |  TOTAL SUPPLY  \`");
-//    console.log("\` --------------------------------------------------------------------- \`")
+    // check SF sentinels balances
+    if (SENTINEL_ACCOUNT !== undefined) {
+        sentinelBal = await web3.eth.getBalance(SENTINEL_ACCOUNT);
+        console.log(`sentinel ${SENTINEL_ACCOUNT} balance: ${wad4human(sentinelBal)}`);
+    }
+    
     let errCnt = 0;
     for (let i = 0; i < superTokens.length; ++i) {
         let innerErrCnt = 0;
