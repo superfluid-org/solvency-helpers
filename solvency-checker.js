@@ -62,14 +62,11 @@ function pppPeriodName(pppPeriodId) {
     for (let i = 0; i < superTokens.length; ++i) {
         let innerErrCnt = 0;
         try {
-            //console.log("---");
             const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
             const symbol = await superToken.methods.symbol().call();
             const totalSupply = await superToken.methods.totalSupply().call();
-            //console.log("Super Token", symbol, superToken._address);
             const accounts = await getAllAccounts(superTokens[i]);
             nrAccs += accounts.length;
-            //console.log("Number of Accounts", accounts.length);
             const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.cfaAddress);
             // skip wrong host version tokens
             if ((await superToken.methods.getHost().call()).toLowerCase() !== network.hostAddress.toLowerCase()) continue;
@@ -84,13 +81,18 @@ function pppPeriodName(pppPeriodId) {
                     }
                     if (availBalBN.ltn(0)) {
                         nrAccsCritical++;
-                        if (await cfa.methods.isPatricianPeriodNow(superTokens[i], account).call()) {
-                            pppPeriod = 1;
-                            nrAccsP1++;
-                        }
-                        if (! await superToken.methods.isAccountSolventNow(account)) {
+                        // figure out if there's open streams by looking at the deposit
+                        if (rtb.deposit !== "0" || rtb.owedDeposit !== "0") {
+                            if (await cfa.methods.isPatricianPeriodNow(superTokens[i], account).call()) {
+                                pppPeriod = 1;
+                                nrAccsP1++;
+                            }
+                        } // else: critical, but no open agreements which could be liquidated
+                        
+                        if (! await superToken.methods.isAccountSolventNow(account).call()) {
                             pppPeriod = 3;
                             nrAccsInsolvent++;
+                            nrAccsCritical--;
                         }
                     }
                     return {
@@ -142,7 +144,7 @@ function pppPeriodName(pppPeriodId) {
         errExists = true;
     }
     //console.log("```");
-    console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period)`);
+    console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent`);
 
     if (triggerAlert) {
         console.log(`:rotating_light: <!channel> ${process.env.NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
