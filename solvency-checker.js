@@ -15,6 +15,7 @@ done
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
 const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT;
+const STREAM_CLOSER_URL = "https://ipfs.io/ipfs/QmcnbzTMdAzCMxyccmpVYENVYiuSzUGimg519Mz7UzdSi8/stream-closer.html";
 
 let triggerAlert = false;
 let errExists = false;
@@ -47,6 +48,7 @@ function pppPeriodName(pppPeriodId) {
     const web3 = new Web3(network.web3ProviderUrl);
     
     // check chain/RPC health
+    const chainId = await web3.eth.getChainId();
     const curBlockNr = await web3.eth.getBlockNumber();
     const curBlock = await web3.eth.getBlock(curBlockNr);
     const rpcDriftS = Math.floor(Date.now() / 1000) - curBlock.timestamp;
@@ -129,7 +131,11 @@ function pppPeriodName(pppPeriodId) {
             const relevantNegativeBalances = balances.filter(account => account.criticalForSeconds > reportCriticalAfter && account.pppPeriod > 1);
             if (relevantNegativeBalances.length > 0) {
                 console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds outside patrician period`);
-                console.log(relevantNegativeBalances.map(a => `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(pppPeriod)}, critical for ${a.criticalFor}`));
+                console.log(relevantNegativeBalances.map(a => {
+                    // TODO: unfortunately we can't link to specific streams here. Ideally this should create a batch tx for all sender streams
+                    const closeLink = `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${superTokens[i]}&sender=${a.account}`;
+                    return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(pppPeriod)}, critical for ${a.criticalFor} | <${closeLink}|Close>`
+                }));
                 triggerAlert = true;
             }
 
