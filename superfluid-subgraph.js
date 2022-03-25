@@ -196,7 +196,7 @@ function getAllAccounts(token) {
     );
 }
 
-function getAllOutFlows(account) {
+function getAllOutFlowsV0(account) {
     console.error("TODO: port to subgraph v1");
     process.exit(1);
     return queryAllPages((skip) => `{
@@ -213,6 +213,23 @@ function getAllOutFlows(account) {
         res => res.data.data.accounts[0].flowsOwned,
         i => i.recipient.id
     );   
+}
+
+function getAllOutFlows(account) {
+    return queryAllPages((lastId) => `{
+        account(id: "${account}") {
+            outflows(where: {
+                id_gt: "${lastId}",
+                currentFlowRate_not: "0",
+            }) {
+                id
+                currentFlowRate
+                }
+            }
+        }`,
+        res => res.data.data.account.outflows,
+        i => i.id
+    );
 }
 
 
