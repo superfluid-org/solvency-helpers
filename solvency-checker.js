@@ -1,7 +1,8 @@
+const fs = require("fs");
 const async = require("async");
 const Web3 = require("web3");
 const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
-const { asleep, selectNetwork, getAllSuperTokens, getAllAccounts } = require("./superfluid-subgraph");
+const { asleep, selectNetwork, getAllSuperTokens, getAllAccounts, getAllOutFlows } = require("./superfluid-subgraph");
 const { toWad, wad4human } = require("@decentral.ee/web3-helpers");
 const printf = require("printf");
 
@@ -16,6 +17,7 @@ const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
 const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT;
 const STREAM_CLOSER_URL = "https://ipfs.io/ipfs/QmcnbzTMdAzCMxyccmpVYENVYiuSzUGimg519Mz7UzdSi8/stream-closer.html";
+const CACHE_FILE_PREFIX=`./cache/${process.env.NETWORK_NAME}.${Math.floor(Date.now() / 1000)}`;
 
 let triggerAlert = false;
 let errExists = false;
@@ -38,12 +40,33 @@ function pppPeriodName(pppPeriodId) {
     }
 }
 
+// returns an array of links to the stream closer Dapp with params set for specific streams
+// falls back to a single link with no receiver set if the graph query for outFlows fails
+async function getCloseLinks(chainId, token, account) {
+    let closeLinks = [];
+    closeLinks[0] = `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${token}&sender=${account}`;
+
+    // if something fails here, we provide a single link without receiver set
+    try {
+        const outFlows = await getAllOutFlows(account);
+        const flowReceivers = outFlows
+            .filter(f => f.split("-")[2] === token) // only streams for the current token
+            .map(f => f.split("-")[1]); // get the receiver from the id
+
+        closeLinks = flowReceivers.map(receiver => `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${token}&sender=${account}&receiver=${receiver}`);
+    } catch(e) {
+        console.error("getting outFlows failed: ", e);
+    }
+    return closeLinks;
+}
+
 (async () => {
     //console.log("```");
     const network = selectNetwork(process.env.NETWORK_NAME);
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
 
     const superTokens = await getAllSuperTokens();
+    fs.writeFileSync(`${CACHE_FILE_PREFIX}.tokens.json`, JSON.stringify(superTokens, null, 2));
     console.log(`Checking ${superTokens.length} ${process.env.NETWORK_NAME} tokens… (RPC: ${network.web3ProviderUrl})`);
     const web3 = new Web3(network.web3ProviderUrl);
     
@@ -68,11 +91,12 @@ function pppPeriodName(pppPeriodId) {
             const symbol = await superToken.methods.symbol().call();
             const totalSupply = await superToken.methods.totalSupply().call();
             const accounts = await getAllAccounts(superTokens[i]);
+            fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
             nrAccs += accounts.length;
             const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.cfaAddress);
             // skip wrong host version tokens
             if ((await superToken.methods.getHost().call()).toLowerCase() !== network.hostAddress.toLowerCase()) continue;
-            const balances = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
+            const accountStates = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
                 try {
                     const rtb = await superToken.methods.realtimeBalanceOfNow(account).call();
                     const availBalBN = web3.utils.toBN(rtb.availableBalance);
@@ -113,29 +137,29 @@ function pppPeriodName(pppPeriodId) {
                     innerErrCnt++;
                 }
             }));
+            fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accountStates.json`, JSON.stringify(accountStates, null, 2));
             if (innerErrCnt > 0) {
                 console.log(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
                 errExists = true;
             }
-            /*
-            const rewardAddressBalance = await superToken.methods.realtimeBalanceOf(network.rewardAddress, block.timestamp).call(block.number);
-            balances.push({
-                account: network.rewardAddress,
-                availableBalance: web3.utils.toBN(web3.utils.toBN(rewardAddressBalance.availableBalance))
-            });
-             */
-            const balancesSum = balances.reduce((acc, cur) => {
+            
+            const balancesSum = accountStates.reduce((acc, cur) => {
                 return acc.add(web3.utils.toBN(cur.availableBalance));
             }, web3.utils.toBN(0));
 
-            const relevantNegativeBalances = balances.filter(account => account.criticalForSeconds > reportCriticalAfter && account.pppPeriod > 1);
-            if (relevantNegativeBalances.length > 0) {
+            const badAccountStates = accountStates.filter(account => account.criticalForSeconds > reportCriticalAfter && account.pppPeriod > 1);
+            if (badAccountStates.length > 0) {
                 console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds outside patrician period`);
-                console.log(relevantNegativeBalances.map(a => {
-                    // TODO: unfortunately we can't link to specific streams here. Ideally this should create a batch tx for all sender streams
-                    const closeLink = `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${superTokens[i]}&sender=${a.account}`;
-                    return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(pppPeriod)}, critical for ${a.criticalFor} | <${closeLink}|Close>`
-                }));
+                
+                const closeLinks = await Promise.all(badAccountStates.map(async (a) => await getCloseLinks(chainId, superTokens[i], a.account)));
+                console.log("returned closeLinks: ", closeLinks);
+                
+                const reportString = badAccountStates.map(a => {
+                    const closeLinksStr = closeLinks
+                        .map((link, i) => `<${link}|Close${i+1}>`).join(", ");
+                    return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(a.pppPeriod)}, critical for ${a.criticalFor} | ${closeLinksStr}`
+                });
+                console.log("reportString: ", reportString);
                 triggerAlert = true;
             }
 
