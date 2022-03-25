@@ -153,11 +153,11 @@ async function getCloseLinks(chainId, token, account) {
                 
                 const closeLinks = await Promise.all(badAccountStates.map(async (a) => await getCloseLinks(chainId, superTokens[i], a.account)));
                 
-                const reportString = badAccountStates.map(a => {
+                console.log(badAccountStates.map(a => {
                     const closeLinksStr = closeLinks
                         .map((link, i) => `<${link}|Close${i+1}>`).join(", ");
                     return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(a.pppPeriod)}, critical for ${a.criticalFor} | ${closeLinksStr}`
-                });
+                }));
                 triggerAlert = true;
             }
 
