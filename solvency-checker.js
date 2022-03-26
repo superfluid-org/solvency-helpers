@@ -15,8 +15,8 @@ done
 
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
-const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT;
-const STREAM_CLOSER_URL = "https://ipfs.io/ipfs/QmcnbzTMdAzCMxyccmpVYENVYiuSzUGimg519Mz7UzdSi8/stream-closer.html";
+const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT; // optional
+const STREAM_CLOSER_URL = process.env.STREAM_CLOSER_URL || "https://ipfs.io/ipfs/QmQjpDNp7NDkvckmbEKkQdzPs4HLKD8r1TjGx472ge6azn/stream-closer.html";
 const CACHE_FILE_PREFIX=`./cache/${process.env.NETWORK_NAME}.${Math.floor(Date.now() / 1000)}`;
 
 let triggerAlert = false;
