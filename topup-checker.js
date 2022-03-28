@@ -58,16 +58,16 @@ NETWORKS = [
     let raiseAlarm = false;
     
     for(const item of watchList) {
-        //console.log(`processing ${item.token}, ${item.account}...`);
+        //console.log(`processing ${item.superToken}, ${item.account}...`);
         
-        token = new ethers.Contract(item.token, IERC20, provider);
+        token = new ethers.Contract(item.superToken, IERC20, provider);
         
         const tokenSymbol = symbolCache[token.address] || await token.symbol();
         symbolCache[token.address] = tokenSymbol;
         
         const bal = await token.balanceOf(item.account);
         
-        const netFlow = await cfa.getNetFlow(item.token, item.account);
+        const netFlow = await cfa.getNetFlow(item.superToken, item.account);
         
         const runWayS = netFlow.eq(0) ? undefined : bal.div(netFlow.mul(-1));
         
