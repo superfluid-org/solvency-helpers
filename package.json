@@ -15,6 +15,7 @@
     "axios": "^0.22.0",
     "ethers": "^5.5.4",
     "printf": "^0.6.1",
+    "superfluid-metadata": "github:superfluid-finance/metadata",
     "web3": "^1.6.1"
   }
 }

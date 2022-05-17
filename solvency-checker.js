@@ -2,9 +2,10 @@ const fs = require("fs");
 const async = require("async");
 const Web3 = require("web3");
 const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
-const { asleep, selectNetwork, getAllSuperTokens, getAllAccounts, getAllOutFlows } = require("./superfluid-subgraph");
+const sfSubgraph = require("./superfluid-subgraph");
 const { toWad, wad4human } = require("@decentral.ee/web3-helpers");
 const printf = require("printf");
+const sfMeta = require("superfluid-metadata");
 
 // for using in a bash script which forwards to a Slack hook:
 /*
@@ -16,8 +17,9 @@ done
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
 const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT; // optional
-const STREAM_CLOSER_URL = process.env.STREAM_CLOSER_URL || "https://ipfs.io/ipfs/QmQjpDNp7NDkvckmbEKkQdzPs4HLKD8r1TjGx472ge6azn/stream-closer.html";
-const CACHE_FILE_PREFIX=`./cache/${process.env.NETWORK_NAME}.${Math.floor(Date.now() / 1000)}`;
+const STREAM_CLOSER_URL = process.env.STREAM_CLOSER_URL || "https://ipfs.io/ipfs/QmRo8TSehXq5Q7Lj4HWAEzrFbcW2hyAHg4Vh7Xszm1Nwp3/stream-closer.html";
+const NETWORK_NAME = process.env.NETWORK_NAME;
+const CACHE_FILE_PREFIX=`./cache/${NETWORK_NAME}.${Math.floor(Date.now() / 1000)}`;
 
 let triggerAlert = false;
 let errExists = false;
@@ -48,7 +50,7 @@ async function getCloseLinks(chainId, token, account) {
 
     // if something fails here, we provide a single link without receiver set
     try {
-        const outFlows = await getAllOutFlows(account);
+        const outFlows = await sfSubgraph.getAllOutFlows(account);
         const flowReceivers = outFlows
             .filter(f => f.split("-")[2] === token) // only streams for the current token
             .map(f => f.split("-")[1]); // get the receiver from the id
@@ -62,13 +64,17 @@ async function getCloseLinks(chainId, token, account) {
 
 (async () => {
     //console.log("```");
-    const network = selectNetwork(process.env.NETWORK_NAME);
+
+    const network = sfMeta.getNetworkByName(NETWORK_NAME);
+    const rpcUrl = `http://${network.name}.web3-infra.superfluid.dev`;
+    sfSubgraph.init(network.subgraphV1.hostedEndpoint);
+
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
 
-    const superTokens = await getAllSuperTokens();
+    const superTokens = await sfSubgraph.getAllSuperTokens();
     fs.writeFileSync(`${CACHE_FILE_PREFIX}.tokens.json`, JSON.stringify(superTokens, null, 2));
-    console.log(`Checking ${superTokens.length} ${process.env.NETWORK_NAME} tokens… (RPC: ${network.web3ProviderUrl})`);
-    const web3 = new Web3(network.web3ProviderUrl);
+    console.log(`Checking ${superTokens.length} ${NETWORK_NAME} tokens… (RPC: ${rpcUrl})`);
+    const web3 = new Web3(rpcUrl);
     
     // check chain/RPC health
     const chainId = await web3.eth.getChainId();
@@ -90,12 +96,12 @@ async function getCloseLinks(chainId, token, account) {
             const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
             const symbol = await superToken.methods.symbol().call();
             const totalSupply = await superToken.methods.totalSupply().call();
-            const accounts = await getAllAccounts(superTokens[i]);
+            const accounts = await sfSubgraph.getAllAccounts(superTokens[i]);
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
             nrAccs += accounts.length;
-            const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.cfaAddress);
+            const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.contractsV1.cfaV1);
             // skip wrong host version tokens
-            if ((await superToken.methods.getHost().call()).toLowerCase() !== network.hostAddress.toLowerCase()) continue;
+            if ((await superToken.methods.getHost().call()).toLowerCase() !== network.contractsV1.host.toLowerCase()) continue;
             const accountStates = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
                 try {
                     const rtb = await superToken.methods.realtimeBalanceOfNow(account).call();
@@ -161,7 +167,7 @@ async function getCloseLinks(chainId, token, account) {
                 triggerAlert = true;
             }
 
-            await asleep(1000);
+            await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (e) {
             console.error(e);
             errCnt++;
@@ -175,9 +181,9 @@ async function getCloseLinks(chainId, token, account) {
     console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent`);
 
     if (triggerAlert) {
-        console.log(`:rotating_light: <!channel> ${process.env.NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
+        console.log(`:rotating_light: <!channel> ${NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
     } else {
-        console.log(`${errExists ? ":warning:" : ":white_check_mark:"} ${process.env.NETWORK_NAME}: No neg. accs detected`);
+        console.log(`${errExists ? ":warning:" : ":white_check_mark:"} ${NETWORK_NAME}: No neg. accs detected`);
     }
 })();
 
