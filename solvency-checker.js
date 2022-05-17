@@ -66,15 +66,16 @@ async function getCloseLinks(chainId, token, account) {
     //console.log("```");
 
     const network = sfMeta.getNetworkByName(NETWORK_NAME);
-    const rpcUrl = `http://${network.name}.web3-infra.superfluid.dev`;
-    sfSubgraph.init(network.subgraphV1.hostedEndpoint);
-
+    const rpcUrlOverride = process.env[`${network.name.replace("-", "_").toUpperCase()}_PROVIDER_URL`];
+    const rpcUrl = rpcUrlOverride ? rpcUrlOverride : `http://${network.name}.web3-infra.superfluid.dev`;
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
+
+    sfSubgraph.init(network.subgraphV1.hostedEndpoint);
+    const web3 = new Web3(rpcUrl);
 
     const superTokens = await sfSubgraph.getAllSuperTokens();
     fs.writeFileSync(`${CACHE_FILE_PREFIX}.tokens.json`, JSON.stringify(superTokens, null, 2));
     console.log(`Checking ${superTokens.length} ${NETWORK_NAME} tokens… (RPC: ${rpcUrl})`);
-    const web3 = new Web3(rpcUrl);
     
     // check chain/RPC health
     const chainId = await web3.eth.getChainId();
