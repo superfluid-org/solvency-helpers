@@ -58,7 +58,6 @@ function getAllSuperTokensV0() {
 }
 
 function getAllSuperTokens() {
-    console.log(`sgUrl: ${subgraphUrl}`);
     //console.log("getAllSuperTokens...");
     return queryAllPages((lastId) => `{
           tokens (first: ${MAX_ITEMS},
