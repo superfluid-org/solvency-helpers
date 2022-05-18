@@ -66,7 +66,7 @@ async function getCloseLinks(chainId, token, account) {
     //console.log("```");
 
     const network = sfMeta.getNetworkByName(NETWORK_NAME);
-    const rpcUrlOverride = process.env[`${network.name.replace("-", "_").toUpperCase()}_PROVIDER_URL`];
+    const rpcUrlOverride = process.env[`${network.uppercaseName}_PROVIDER_URL`];
     const rpcUrl = rpcUrlOverride ? rpcUrlOverride : `http://${network.name}.web3-infra.superfluid.dev`;
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
 
