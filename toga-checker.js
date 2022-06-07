@@ -6,8 +6,11 @@ const sfMeta = require("superfluid-metadata");
 
 
 async function getSuperTokens(graphAPI) {
+    // 1000 is the max currently supported by the graph protocol
+    const MAX_NR_ITEMS = 1000;
+
     const query = `query MyQuery {
-  tokens(where: {isSuperToken: true}) {
+  tokens(where: {isSuperToken: true}, first: ${MAX_NR_ITEMS}) {
     name
     symbol
     isSuperToken
@@ -20,6 +23,11 @@ async function getSuperTokens(graphAPI) {
     if (res.status !== 200 || res.data.errors) {
         console.error(res.data);
         process.exit(1);
+    }
+
+    if (res.data.data.tokens.length >= MAX_NR_ITEMS) {
+        // if this happens, notify about it. Solution: implement pagination for the query
+        console.error(`graphql query reached max nr of items (${MAX_NR_ITEMS}), may be incomplete`);
     }
 
     return res.data.data.tokens;
