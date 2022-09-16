@@ -5,7 +5,7 @@ const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 const sfSubgraph = require("./superfluid-subgraph");
 const { toWad, wad4human } = require("@decentral.ee/web3-helpers");
 const printf = require("printf");
-const sfMeta = require("superfluid-metadata");
+const sfMetaPromise = import("superfluid-metadata");
 
 // for using in a bash script which forwards to a Slack hook:
 /*
@@ -65,9 +65,16 @@ async function getCloseLinks(chainId, token, account) {
 (async () => {
     //console.log("```");
 
+    const sfMeta = (await sfMetaPromise).default;
+
     const network = sfMeta.getNetworkByName(NETWORK_NAME);
+    if (network === undefined) {
+        console.error(`ERR: network ${NETWORK_NAME} not found in metadata. Check value of env var NETWORK_NAME`);
+        process.exit(1);
+    }
+
     const rpcUrlOverride = process.env[`${network.uppercaseName}_PROVIDER_URL`];
-    const rpcUrl = rpcUrlOverride ? rpcUrlOverride : `http://${network.name}.web3-infra.superfluid.dev`;
+    const rpcUrl = rpcUrlOverride ? rpcUrlOverride : `https://${network.name}.rpc.x.superfluid.dev`;
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
 
     sfSubgraph.init(network.subgraphV1.hostedEndpoint);
