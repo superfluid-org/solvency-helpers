@@ -164,14 +164,12 @@ async function getCloseLinks(chainId, token, account) {
             const badAccountStates = accountStates.filter(account => account.criticalForSeconds > reportCriticalAfter && account.pppPeriod > 1);
             if (badAccountStates.length > 0) {
                 console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds outside patrician period`);
-                
-                const closeLinks = await Promise.all(badAccountStates.map(async (a) => await getCloseLinks(chainId, superTokens[i], a.account)));
-                
-                console.log(badAccountStates.map(a => {
-                    const closeLinksStr = closeLinks
-                        .map((link, i) => `<${link}|Close${i+1}>`).join(", ");
+                const outputStr = await Promise.all(badAccountStates.map(async a => {
+                    const closeLinks = await getCloseLinks(chainId, superTokens[i], a.account);
+                    const closeLinksStr = closeLinks.map((link, i) => `<${link}|Close${i+1}>`).join(", ");
                     return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(a.pppPeriod)}, critical for ${a.criticalFor} | ${closeLinksStr}`
                 }));
+                console.log(outputStr);
                 triggerAlert = true;
             }
 
