@@ -2,8 +2,7 @@ const togaABI = require("./abis/TOGA.json");
 const Web3 = require("web3");
 const axios = require("axios");
 const { wad4human, toBN } = require("@decentral.ee/web3-helpers");
-const sfMeta = require("superfluid-metadata");
-
+const sfMetaPromise = import("superfluid-metadata");
 
 async function getSuperTokens(graphAPI) {
     // 1000 is the max currently supported by the graph protocol
@@ -34,8 +33,15 @@ async function getSuperTokens(graphAPI) {
 }
 
 (async () => {
+    const sfMeta = (await sfMetaPromise).default;
+
     const networkName = process.env.NETWORK_NAME;
     const network = sfMeta.getNetworkByName(networkName);
+    if (network === undefined) {
+        console.error(`ERR: network ${NETWORK_NAME} not found in metadata. Check value of env var NETWORK_NAME`);
+        process.exit(1);
+    }
+
     const rpcUrl = `http://${network.name}.web3-infra.superfluid.dev`;
 
     const web3 = new Web3(rpcUrl);
