@@ -5,7 +5,7 @@ const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 const sfSubgraph = require("./superfluid-subgraph");
 const { toWad, wad4human } = require("@decentral.ee/web3-helpers");
 const printf = require("printf");
-const sfMetaPromise = import("superfluid-metadata");
+const sfMetaPromise = import("@superfluid-finance/metadata");
 
 // for using in a bash script which forwards to a Slack hook:
 /*

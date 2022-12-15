@@ -2,7 +2,7 @@ const togaABI = require("./abis/TOGA.json");
 const Web3 = require("web3");
 const axios = require("axios");
 const { wad4human, toBN } = require("@decentral.ee/web3-helpers");
-const sfMetaPromise = import("superfluid-metadata");
+const sfMetaPromise = import("@superfluid-finance/metadata");
 
 async function getSuperTokens(graphAPI) {
     // 1000 is the max currently supported by the graph protocol
