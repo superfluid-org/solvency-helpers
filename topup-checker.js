@@ -78,10 +78,7 @@ NETWORKS = [
             NetFlowDaily: wad4human(netFlow.mul(3600*24)),
             RunWayHours: netFlow.gte(0) ? '∞' : runWayS.div(3600).toString()
         });
-        raiseAlarm = raiseAlarm ||
-            (netFlow.lt(0) && runWayS.lt(minRunwayS) &&
-            item.account != "0xa8551f0a686eb1eeae9a743548dc252565d0bef1")
-            // 0xa855... has a ghost flow on goerli we can't close, thus muted here
+        raiseAlarm = raiseAlarm || (netFlow.lt(0) && runWayS.lt(minRunwayS));
     }
     console.log(`Network: ${network.name} - top-up checker`);
     console.log('```');
