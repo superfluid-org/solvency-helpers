@@ -171,6 +171,10 @@ async function getCloseLinks(chainId, token, account) {
                 }));
                 console.log(outputStr);
                 triggerAlert = true;
+                if (superTokens[i] == "0x5943f705abb6834cad767e6e4bb258bc48d9c947" && badAccountStates.length == 1) {
+                    // there's a known insolvent ghost flow for ETHx on goerli we can't delete, thus muted
+                    triggerAlert = false;
+                }
             }
 
             await new Promise(resolve => setTimeout(resolve, 1000));
