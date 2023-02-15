@@ -42,7 +42,7 @@ async function getSuperTokens(graphAPI) {
         process.exit(1);
     }
 
-    const rpcUrl = `http://${network.name}.web3-infra.superfluid.dev`;
+    const rpcUrl = `https://${network.name}.rpc.x.superfluid.dev?app=toga-checker`;
 
     const web3 = new Web3(rpcUrl);
     const toga = new web3.eth.Contract(togaABI, network.contractsV1.toga);
@@ -53,7 +53,7 @@ async function getSuperTokens(graphAPI) {
     for (let i = 0; i < superTokens.length; i++) {
         try {
             const picInfo = await toga.methods.getCurrentPICInfo(superTokens[i].id).call();
-            if(picInfo.bond !== '0' || picInfo.pic !== "0x0000000000000000000000000000000000000000") {
+            if(process.env.ALL_TOKENS || picInfo.bond !== '0' || picInfo.pic !== "0x0000000000000000000000000000000000000000") {
                 tblPIC.push({
                     name: superTokens[i].name,
                     symbol: superTokens[i].symbol,
