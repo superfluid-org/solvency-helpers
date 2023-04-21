@@ -20,6 +20,7 @@ const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT; // optional
 const STREAM_CLOSER_URL = process.env.STREAM_CLOSER_URL || "https://ipfs.io/ipfs/QmRo8TSehXq5Q7Lj4HWAEzrFbcW2hyAHg4Vh7Xszm1Nwp3/stream-closer.html";
 const NETWORK_NAME = process.env.NETWORK_NAME;
 const CACHE_FILE_PREFIX=`./cache/${NETWORK_NAME}.${Math.floor(Date.now() / 1000)}`;
+const TOKEN_ALERT_SKIP_LIST=process.env.TOKEN_ALERT_SKIP_LIST?.split() || [];
 
 let triggerAlert = false;
 let errExists = false;
@@ -171,8 +172,8 @@ async function getCloseLinks(chainId, token, account) {
                 }));
                 console.log(outputStr);
                 triggerAlert = true;
-                if (superTokens[i] == "0x5943f705abb6834cad767e6e4bb258bc48d9c947" && badAccountStates.length == 1) {
-                    // there's a known insolvent ghost flow for ETHx on goerli we can't delete, thus muted
+                if (TOKEN_ALERT_SKIP_LIST.some(e => e.toLowerCase() === superTokens[i])) {
+                    // token is flagged as not triggering alerts
                     triggerAlert = false;
                 }
             }
