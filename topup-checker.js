@@ -43,7 +43,7 @@ NETWORKS = [
     }
     const watchList = require(`./${process.env.WATCHLIST_FILE}`);
     
-    const rpc = `http://${network.name}.web3-infra.superfluid.dev`;
+    const rpc = `https://${network.name}.rpc.x.superfluid.dev`;
     const provider = new ethers.providers.JsonRpcProvider(rpc);
     
     const host = new ethers.Contract(network.hostAddr, ISuperfluidAbi, provider);
