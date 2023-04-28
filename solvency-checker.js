@@ -22,6 +22,16 @@ const NETWORK_NAME = process.env.NETWORK_NAME;
 const CACHE_FILE_PREFIX=`./cache/${NETWORK_NAME}.${Math.floor(Date.now() / 1000)}`;
 const TOKEN_ALERT_SKIP_LIST=process.env.TOKEN_ALERT_SKIP_LIST?.split() || [];
 
+/*
+How the dust filter works:
+If the file exists, we take the flowrate thresholds and interpolate them to 10 years.
+That's because we're not iterating through all streams, but through all accounts.
+We assume the threshold values to be so low (such that even in 100 years an insolvent stream can't create any systematically meaningful debt)
+that ignoring accounts having a debt of less than 10 years of the threshold flowrate is safe.
+*/
+const THRESHOLDS_FILE="./solvency-thresholds.json"
+const DUST_THRESHOLD_FR_MULTIPLIER = 3600 * 24 * 10; // 10 years
+
 let triggerAlert = false;
 let errExists = false;
 let nrAccs = 0;
@@ -29,6 +39,7 @@ let nrAccsWithNegFlow = 0;
 let nrAccsCritical = 0;
 let nrAccsP1 = 0; // in patrician period
 let nrAccsInsolvent = 0;
+let nrAccsInsolventBelowThreshold = 0;
 
 function truncateStr (str, maxLen, end = '…')  {
     return str.length() <= maxLen ? str : str.substring(0, maxLen).concat(end);
@@ -92,6 +103,12 @@ async function getCloseLinks(chainId, token, account) {
     const rpcDriftS = Math.floor(Date.now() / 1000) - curBlock.timestamp;
     console.log(`last block: ${curBlock.number}, RPC drift: ${rpcDriftS} s ${rpcDriftS > RPC_DRIFT_WARN_THRESHOLD ? "<- :rotating_light: <!channel>" : ""}`);
     
+    // returns undefined or an array of `{ address, above }` where `address` is the SuperToken and`above` is a flowrate
+    let dustFilter = fs.existsSync(THRESHOLDS_FILE) ? require(THRESHOLDS_FILE).networks[chainId]?.thresholds : undefined;
+    if (dustFilter !== undefined) {
+        console.log(`using dust filter: ${JSON.stringify(dustFilter)}`);
+    }
+
     // check SF sentinels balances
     if (SENTINEL_ACCOUNT !== undefined) {
         sentinelBal = await web3.eth.getBalance(SENTINEL_ACCOUNT);
@@ -106,6 +123,10 @@ async function getCloseLinks(chainId, token, account) {
             const symbol = await superToken.methods.symbol().call();
             const totalSupply = await superToken.methods.totalSupply().call();
             const accounts = await sfSubgraph.getAllAccounts(superTokens[i]);
+            const warningThresh = dustFilter?.filter(e => e.address.toLowerCase === superTokens[i].toLowerCase)[0]?.above || 0;
+            //console.log(`checking ${superTokens[i]} - ${symbol})`);
+            //console.log(`warningThresh for ${superTokens[i]}: ${warningThresh}`);
+
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
             nrAccs += accounts.length;
             const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.contractsV1.cfaV1);
@@ -117,6 +138,7 @@ async function getCloseLinks(chainId, token, account) {
                     const availBalBN = web3.utils.toBN(rtb.availableBalance);
                     const netFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call());
                     let pppPeriod = 2; // default plebs
+                    let belowWarningThreshold = false; // true suppresses warnings (mute insolvent dust streams)
                     if (netFlow.ltn(0)) {
                         nrAccsWithNegFlow++;
                     }
@@ -134,6 +156,10 @@ async function getCloseLinks(chainId, token, account) {
                             pppPeriod = 3;
                             nrAccsInsolvent++;
                             nrAccsCritical--;
+                            if (availBalBN.neg().lt(new web3.utils.BN(warningThresh))) {
+                                nrAccsInsolventBelowThreshold++;
+                                belowWarningThreshold = true;
+                            }
                         }
                     }
                     return {
@@ -145,7 +171,8 @@ async function getCloseLinks(chainId, token, account) {
                         criticalFor: (availBalBN.ltn(0) && netFlow.ltn(0)
                             ? availBalBN.div(netFlow).toString()
                             : "0")/3600 + " hours",
-                        pppPeriod
+                        pppPeriod,
+                        belowWarningThreshold
                     };
                 } catch (e) {
                     //console.error(`${symbol} ${account}: ${e}`);
@@ -162,7 +189,11 @@ async function getCloseLinks(chainId, token, account) {
                 return acc.add(web3.utils.toBN(cur.availableBalance));
             }, web3.utils.toBN(0));
 
-            const badAccountStates = accountStates.filter(account => account.criticalForSeconds > reportCriticalAfter && account.pppPeriod > 1);
+            const badAccountStates = accountStates.filter(
+                account => account.criticalForSeconds > reportCriticalAfter
+                && account.pppPeriod > 1
+                && !account.belowWarningThreshold
+            );
             if (badAccountStates.length > 0) {
                 console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds outside patrician period`);
                 const outputStr = await Promise.all(badAccountStates.map(async a => {
