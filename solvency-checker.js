@@ -24,10 +24,10 @@ const TOKEN_ALERT_SKIP_LIST=process.env.TOKEN_ALERT_SKIP_LIST?.split() || [];
 
 /*
 How the dust filter works:
-If the file exists, we take the flowrate thresholds and interpolate them to 10 years.
+If the file exists, we take the flowrate thresholds and interpolate them to 1 year.
 That's because we're not iterating through all streams, but through all accounts.
 We assume the threshold values to be so low (such that even in 100 years an insolvent stream can't create any systematically meaningful debt)
-that ignoring accounts having a debt of less than 10 years of the threshold flowrate is safe.
+that ignoring accounts having a debt of less than 1 year of the threshold flowrate is safe.
 */
 const THRESHOLDS_FILE="./solvency-thresholds.json"
 const DUST_THRESHOLD_FR_MULTIPLIER = 3600 * 24 * 10; // 10 years
@@ -123,9 +123,8 @@ async function getCloseLinks(chainId, token, account) {
             const symbol = await superToken.methods.symbol().call();
             const totalSupply = await superToken.methods.totalSupply().call();
             const accounts = await sfSubgraph.getAllAccounts(superTokens[i]);
-            const warningThresh = dustFilter?.filter(e => e.address.toLowerCase === superTokens[i].toLowerCase)[0]?.above || 0;
-            //console.log(`checking ${superTokens[i]} - ${symbol})`);
-            //console.log(`warningThresh for ${superTokens[i]}: ${warningThresh}`);
+            // 1 year of flowrate
+            const warningThresh = parseInt(dustFilter?.filter(e => e.address.toLowerCase() === superTokens[i].toLowerCase())[0]?.above) * 86400 * 365 || 0;
 
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
             nrAccs += accounts.length;
@@ -156,9 +155,10 @@ async function getCloseLinks(chainId, token, account) {
                             pppPeriod = 3;
                             nrAccsInsolvent++;
                             nrAccsCritical--;
-                            if (availBalBN.neg().lt(new web3.utils.BN(warningThresh))) {
+                            if (availBalBN.neg().lt(new web3.utils.BN(String(warningThresh)))) {
                                 nrAccsInsolventBelowThreshold++;
                                 belowWarningThreshold = true;
+                                //console.log(`below threshold: ${account}`);
                             }
                         }
                     }
