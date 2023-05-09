@@ -92,6 +92,14 @@ async function getCloseLinks(chainId, token, account) {
     sfSubgraph.init(network.subgraphV1.hostedEndpoint);
     const web3 = new Web3(rpcUrl);
 
+    // patch web3 to count RPC calls
+    let rpcRequestCount = 0;
+    const originalSend = web3.currentProvider.send;
+    web3.currentProvider.send = async function () {
+        rpcRequestCount++;
+        return originalSend.apply(this, arguments);
+    };
+
     const superTokens = await sfSubgraph.getAllSuperTokens();
     fs.writeFileSync(`${CACHE_FILE_PREFIX}.tokens.json`, JSON.stringify(superTokens, null, 2));
     console.log(`Checking ${superTokens.length} ${NETWORK_NAME} tokens… (RPC: ${rpcUrl})`);
@@ -220,7 +228,7 @@ async function getCloseLinks(chainId, token, account) {
         errExists = true;
     }
     //console.log("```");
-    console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} below threshold)`);
+    console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} below threshold) | ${rpcRequestCount} RPC requests made`);
 
     if (triggerAlert) {
         console.log(`:rotating_light: <!channel> ${NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
