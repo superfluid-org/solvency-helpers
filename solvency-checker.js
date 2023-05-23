@@ -4,7 +4,6 @@ const Web3 = require("web3");
 const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 const sfSubgraph = require("./superfluid-subgraph");
 const { toWad, wad4human } = require("@decentral.ee/web3-helpers");
-const printf = require("printf");
 const sfMetaPromise = import("@superfluid-finance/metadata");
 
 // for using in a bash script which forwards to a Slack hook:
@@ -13,6 +12,7 @@ for n in xdai matic; do
     curl -s -X POST -H 'Content-type: application/json' --data "$(NETWORK_NAME=$n node solvency-checker.js | jq -MRn '[inputs] | { "text": join("\n") }')" $SLACK_WEBHOOK -o /dev/null
 done
 */
+// set env var INTROVERT in order to mute all non-warning output
 
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
@@ -54,6 +54,23 @@ function pppPeriodName(pppPeriodId) {
     }
 }
 
+// this is reported if INTROVERT is not set
+function infoLog(msg) {
+    if (!process.env.INTROVERT) {
+        console.log(msg);
+    }
+}
+
+// this is reported
+function warnLog(msg) {
+    console.log(msg);
+}
+
+// this goes to stderr
+function internalLog(msg) {
+    console.error(msg);
+}
+
 // returns an array of links to the stream closer Dapp with params set for specific streams
 // falls back to a single link with no receiver set if the graph query for outFlows fails
 async function getCloseLinks(chainId, token, account) {
@@ -69,24 +86,22 @@ async function getCloseLinks(chainId, token, account) {
 
         closeLinks = flowReceivers.map(receiver => `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${token}&sender=${account}&receiver=${receiver}`);
     } catch(e) {
-        console.error("getting outFlows failed: ", e);
+        internalLog("getting outFlows failed: ", e);
     }
     return closeLinks;
 }
 
 (async () => {
-    //console.log("```");
-
     const sfMeta = (await sfMetaPromise).default;
 
     const network = sfMeta.getNetworkByName(NETWORK_NAME);
     if (network === undefined) {
-        console.error(`ERR: network ${NETWORK_NAME} not found in metadata. Check value of env var NETWORK_NAME`);
+        internalLog(`ERR: network ${NETWORK_NAME} not found in metadata. Check value of env var NETWORK_NAME`);
         process.exit(1);
     }
 
     const rpcUrlOverride = process.env[`${network.uppercaseName}_PROVIDER_URL`];
-    const rpcUrl = rpcUrlOverride ? rpcUrlOverride : `https://${network.name}.sfrpc.x.superfluid.dev?app=solvency-checker`;
+    const rpcUrl = rpcUrlOverride ? rpcUrlOverride : `https://${network.name}.sfrpcc.x.superfluid.dev?app=solvency-checker`;
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
 
     sfSubgraph.init(network.subgraphV1.hostedEndpoint);
@@ -97,30 +112,47 @@ async function getCloseLinks(chainId, token, account) {
     const originalSend = web3.currentProvider.send;
     web3.currentProvider.send = async function () {
         rpcRequestCount++;
-        return originalSend.apply(this, arguments);
+        try {
+            return originalSend.apply(this, arguments);
+        } catch(e) {
+            warnLog(`ERR: web3 request failed: ${e}`);
+        }
     };
 
     const superTokens = await sfSubgraph.getAllSuperTokens();
     fs.writeFileSync(`${CACHE_FILE_PREFIX}.tokens.json`, JSON.stringify(superTokens, null, 2));
-    console.log(`Checking ${superTokens.length} ${NETWORK_NAME} tokens… (RPC: ${rpcUrl})`);
+    infoLog(`Checking ${superTokens.length} ${NETWORK_NAME} tokens… (RPC: ${rpcUrl})`);
     
     // check chain/RPC health
+    try {
+        // check if the RPC connection works
+        await web3.eth.getChainId();
+    } catch(e) {
+        warnLog(`communicating with ${NETWORK_NAME} RPC ${rpcUrl} failed`);
+        process.exit();
+    }
+
     const chainId = await web3.eth.getChainId();
     const curBlockNr = await web3.eth.getBlockNumber();
     const curBlock = await web3.eth.getBlock(curBlockNr);
     const rpcDriftS = Math.floor(Date.now() / 1000) - curBlock.timestamp;
-    console.log(`last block: ${curBlock.number}, RPC drift: ${rpcDriftS} s ${rpcDriftS > RPC_DRIFT_WARN_THRESHOLD ? "<- :rotating_light: <!channel>" : ""}`);
+
+    if (rpcDriftS > RPC_DRIFT_WARN_THRESHOLD) {
+        warnLog(`last block: ${curBlock.number}, RPC drift: ${rpcDriftS} s <- :rotating_light: <!channel>`);
+    } else {
+        infoLog(`last block: ${curBlock.number}, RPC drift: ${rpcDriftS} s`);
+    }
     
     // returns undefined or an array of `{ address, above }` where `address` is the SuperToken and`above` is a flowrate
     let dustFilter = fs.existsSync(THRESHOLDS_FILE) ? require(THRESHOLDS_FILE).networks[chainId]?.thresholds : undefined;
     if (dustFilter !== undefined) {
-        console.log(`using dust filter: ${JSON.stringify(dustFilter)}`);
+        infoLog(`using dust filter: ${JSON.stringify(dustFilter)}`);
     }
 
     // check SF sentinels balances
     if (SENTINEL_ACCOUNT !== undefined) {
         sentinelBal = await web3.eth.getBalance(SENTINEL_ACCOUNT);
-        console.log(`sentinel ${SENTINEL_ACCOUNT} balance: ${wad4human(sentinelBal)}`);
+        infoLog(`sentinel ${SENTINEL_ACCOUNT} balance: ${wad4human(sentinelBal)}`);
     }
     
     let errCnt = 0;
@@ -166,7 +198,8 @@ async function getCloseLinks(chainId, token, account) {
                             if (availBalBN.neg().lt(new web3.utils.BN(String(warningThresh)))) {
                                 nrAccsInsolventBelowThreshold++;
                                 belowWarningThreshold = true;
-                                //console.log(`below threshold: ${account}`);
+                            } else {
+                                warnLog(`insolvent: token ${superTokens[i]}, account ${account}`);
                             }
                         }
                     }
@@ -189,7 +222,8 @@ async function getCloseLinks(chainId, token, account) {
             }));
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accountStates.json`, JSON.stringify(accountStates, null, 2));
             if (innerErrCnt > 0) {
-                console.log(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
+                // TODO: we need to somehow better deal with this
+                infoLog(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
                 errExists = true;
             }
             
@@ -203,13 +237,13 @@ async function getCloseLinks(chainId, token, account) {
                 && !account.belowWarningThreshold
             );
             if (badAccountStates.length > 0) {
-                console.log(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds outside patrician period`);
+                warnLog(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds outside patrician period`);
                 const outputStr = await Promise.all(badAccountStates.map(async a => {
                     const closeLinks = await getCloseLinks(chainId, superTokens[i], a.account);
                     const closeLinksStr = closeLinks.map((link, i) => `<${link}|Close${i+1}>`).join(", ");
                     return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(a.pppPeriod)}, critical for ${a.criticalFor} | ${closeLinksStr}`
                 }));
-                console.log(outputStr);
+                warnLog(outputStr);
                 triggerAlert = true;
                 if (TOKEN_ALERT_SKIP_LIST.some(e => e.toLowerCase() === superTokens[i])) {
                     // token is flagged as not triggering alerts
@@ -219,21 +253,21 @@ async function getCloseLinks(chainId, token, account) {
 
             await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (e) {
-            console.error(e);
+            internalLog(e);
             errCnt++;
         }
     }
     if (errCnt > 0) {
-        console.log(`ERR: ${errCnt} non-balance queries failed`);
+        // TODO: we need to somehow better deal with this
+        infoLog(`ERR: ${errCnt} non-balance queries failed`);
         errExists = true;
     }
-    //console.log("```");
-    console.log(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} below threshold) | ${rpcRequestCount} RPC requests made`);
+    infoLog(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} below threshold) | ${rpcRequestCount} RPC requests made`);
 
     if (triggerAlert) {
-        console.log(`:rotating_light: <!channel> ${NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
+        warnLog(`:rotating_light: <!channel> ${NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
     } else {
-        console.log(`${errExists ? ":warning:" : ":white_check_mark:"} ${NETWORK_NAME}: No neg. accs detected`);
+        infoLog(`${errExists ? ":warning:" : ":white_check_mark:"} ${NETWORK_NAME}: No neg. accs detected`);
     }
 })();
 
