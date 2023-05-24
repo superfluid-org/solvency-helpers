@@ -54,16 +54,26 @@ function pppPeriodName(pppPeriodId) {
     }
 }
 
+// in introvert mode, keep what would have been logged in case all is not right and a report is needed anyway
+let deferredLog = "";
+let warnMode = false; // toggles to true on first warning raised
 // this is reported if INTROVERT is not set
 function infoLog(msg) {
-    if (!process.env.INTROVERT) {
+    if (!process.env.INTROVERT || warnMode) {
         console.log(msg);
+    } else {
+        deferredLog += msg;
     }
 }
 
 // this is reported
 function warnLog(msg) {
+    if (deferredLog !== "") {
+        console.log(deferredLog);
+        deferredLog = "";
+    }
     console.log(msg);
+    warnMode = true;
 }
 
 // this goes to stderr
@@ -137,16 +147,14 @@ async function getCloseLinks(chainId, token, account) {
     const curBlock = await web3.eth.getBlock(curBlockNr);
     const rpcDriftS = Math.floor(Date.now() / 1000) - curBlock.timestamp;
 
-    if (rpcDriftS > RPC_DRIFT_WARN_THRESHOLD) {
-        warnLog(`last block: ${curBlock.number}, RPC drift: ${rpcDriftS} s <- :rotating_light: <!channel>`);
-    } else {
-        infoLog(`last block: ${curBlock.number}, RPC drift: ${rpcDriftS} s`);
-    }
-    
     // returns undefined or an array of `{ address, above }` where `address` is the SuperToken and`above` is a flowrate
     let dustFilter = fs.existsSync(THRESHOLDS_FILE) ? require(THRESHOLDS_FILE).networks[chainId]?.thresholds : undefined;
-    if (dustFilter !== undefined) {
-        infoLog(`using dust filter: ${JSON.stringify(dustFilter)}`);
+    const infoMsg = `last block: ${curBlock.number}, ` + (dustFilter !== undefined ? "dustfilter used, " : "") + `RPC drift: ${rpcDriftS}s`;
+
+    if (rpcDriftS > RPC_DRIFT_WARN_THRESHOLD) {
+        warnLog(infoMsg + " <- :rotating_light: <!channel>");
+    } else {
+        infoLog(infoMsg);
     }
 
     // check SF sentinels balances
@@ -199,7 +207,8 @@ async function getCloseLinks(chainId, token, account) {
                                 nrAccsInsolventBelowThreshold++;
                                 belowWarningThreshold = true;
                             } else {
-                                warnLog(`insolvent: token ${superTokens[i]}, account ${account}`);
+                                // warning would be more appropriate, but we know and accept this for a few tokens and don't need a constant reminder
+                                infoLog(`insolvent: token ${superTokens[i]}, account ${account}`);
                             }
                         }
                     }
@@ -220,6 +229,7 @@ async function getCloseLinks(chainId, token, account) {
                     innerErrCnt++;
                 }
             }));
+
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accountStates.json`, JSON.stringify(accountStates, null, 2));
             if (innerErrCnt > 0) {
                 // TODO: we need to somehow better deal with this
