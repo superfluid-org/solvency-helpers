@@ -122,11 +122,7 @@ async function getCloseLinks(chainId, token, account) {
     const originalSend = web3.currentProvider.send;
     web3.currentProvider.send = async function () {
         rpcRequestCount++;
-        try {
-            return originalSend.apply(this, arguments);
-        } catch(e) {
-            warnLog(`ERR: web3 request failed: ${e}`);
-        }
+        return originalSend.apply(this, arguments);
     };
 
     const superTokens = await sfSubgraph.getAllSuperTokens();
