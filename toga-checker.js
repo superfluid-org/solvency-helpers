@@ -2,36 +2,14 @@ const togaABI = require("./abis/TOGA.json");
 const Web3 = require("web3");
 const axios = require("axios");
 const { wad4human, toBN } = require("@decentral.ee/web3-helpers");
-
-/*CONFIGS*/
-const NETWORKS = {
-    xdai: {
-        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-xdai",
-        web3ProviderUrl: process.env.XDAI_PROVIDER_URL || "http://xdai-mainnet.web3-infra.superfluid.dev",
-        toga: "0xb7DE52F4281a7a276E18C40F94cd93159C4A2d22"
-    },
-    matic: {
-        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-matic",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://polygon-mainnet.web3-infra.superfluid.dev",
-        toga: "0x6AEAeE5Fd4D05A741723D752D30EE4D72690A8f7"
-    },
-    opmainnet: {
-        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-optimism-mainnet",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://optimism-mainnet.web3-infra.superfluid.dev",
-        toga: "0xA3c8502187fD7a7118eAD59dc811281448946C8f"
-    },
-    arbone: {
-        theGraphQueryUrl: "https://api.thegraph.com/subgraphs/name/superfluid-finance/protocol-v1-arbitrum-one",
-        web3ProviderUrl: process.env.MATIC_PROVIDER_URL || "http://arbitrum-one.web3-infra.superfluid.dev",
-        toga: "0xFC63B7C762B10670Eda15cF3ca3970bCDB28C9eF"
-    },
-};
-
-
+const sfMetaPromise = import("@superfluid-finance/metadata");
 
 async function getSuperTokens(graphAPI) {
+    // 1000 is the max currently supported by the graph protocol
+    const MAX_NR_ITEMS = 1000;
+
     const query = `query MyQuery {
-  tokens(where: {isSuperToken: true}) {
+  tokens(where: {isSuperToken: true}, first: ${MAX_NR_ITEMS}) {
     name
     symbol
     isSuperToken
@@ -46,44 +24,56 @@ async function getSuperTokens(graphAPI) {
         process.exit(1);
     }
 
+    if (res.data.data.tokens.length >= MAX_NR_ITEMS) {
+        // if this happens, notify about it. Solution: implement pagination for the query
+        console.error(`graphql query reached max nr of items (${MAX_NR_ITEMS}), may be incomplete`);
+    }
+
     return res.data.data.tokens;
 }
 
 (async () => {
-    const networkName = process.env.NETWORK_NAME;
-    //for(networkName in NETWORKS) {
-        const web3 = new Web3(NETWORKS[networkName].web3ProviderUrl);
-        const toga = new web3.eth.Contract(togaABI, NETWORKS[networkName].toga);
-        const tblPIC = []; 
-        const tblNoPIC = [];
-        const superTokens = await getSuperTokens(NETWORKS[networkName].theGraphQueryUrl);
+    const sfMeta = (await sfMetaPromise).default;
 
-        for (let i = 0; i < superTokens.length; i++) {
-            try {
-                const picInfo = await toga.methods.getCurrentPICInfo(superTokens[i].id).call();
-                if(picInfo.bond !== '0' || picInfo.pic !== "0x0000000000000000000000000000000000000000") {
-                    tblPIC.push({
-                        name: superTokens[i].name,
-                        symbol: superTokens[i].symbol,
-                        PIC: picInfo.pic,
-                        Bond: wad4human(picInfo.bond),
-                        ExitRatePerDay: wad4human(toBN(picInfo.exitRate).mul(toBN(3600 * 24))) 
-                    });
-                } else {
-                    tblNoPIC.push({
-                        name: superTokens[i].name,
-                        symbol: superTokens[i].symbol,
-                    })
-                }
-            } catch(err) {
-                console.error(err);
+    const networkName = process.env.NETWORK_NAME;
+    const network = sfMeta.getNetworkByName(networkName);
+    if (network === undefined) {
+        console.error(`ERR: network ${NETWORK_NAME} not found in metadata. Check value of env var NETWORK_NAME`);
+        process.exit(1);
+    }
+
+    const rpcUrl = `https://${network.name}.rpc.x.superfluid.dev?app=toga-checker`;
+
+    const web3 = new Web3(rpcUrl);
+    const toga = new web3.eth.Contract(togaABI, network.contractsV1.toga);
+    const tblPIC = [];
+    const tblNoPIC = [];
+    const superTokens = await getSuperTokens(network.subgraphV1.hostedEndpoint);
+
+    for (let i = 0; i < superTokens.length; i++) {
+        try {
+            const picInfo = await toga.methods.getCurrentPICInfo(superTokens[i].id).call();
+            if(process.env.ALL_TOKENS || picInfo.bond !== '0' || picInfo.pic !== "0x0000000000000000000000000000000000000000") {
+                tblPIC.push({
+                    name: superTokens[i].name,
+                    symbol: superTokens[i].symbol,
+                    PIC: picInfo.pic,
+                    Bond: wad4human(picInfo.bond),
+                    ExitRatePerDay: wad4human(toBN(picInfo.exitRate).mul(toBN(3600 * 24)))
+                });
+            } else {
+                tblNoPIC.push({
+                    name: superTokens[i].name,
+                    symbol: superTokens[i].symbol,
+                })
             }
+        } catch(err) {
+            console.error(err);
         }
-        console.log(`Network: ${networkName} - TOGAv2`);
-        console.log('```');
-        console.table(tblPIC, ["name", "symbol", "PIC", "Bond", "ExitRatePerDay"]);
-        console.log('```');
-        //console.table(tblNoPIC);
-    //} 
+    }
+    console.log(`Network: ${networkName} - TOGAv2`);
+    console.log('```');
+    console.table(tblPIC, ["name", "symbol", "PIC", "Bond", "ExitRatePerDay"]);
+    console.log('```');
 })();
 

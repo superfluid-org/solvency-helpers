@@ -1,3 +1,9 @@
+/*
+* CAUTION!
+* This script is currently broken.
+* TODO: fix or remove
+*/
+
 require("dotenv").config();
 const axios = require("axios");
 const async = require("async");
