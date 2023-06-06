@@ -1,19 +1,22 @@
+/**
+ * Example invocation with CTC on goerli:
+ * PRIVKEY=0x123... L1RPC=https://eth-goerli.rpc.x.superfluid.dev HOST=0x22ff293e14F1EC3A09B137e9e06084AFd63adDF9 CFA=0xEd6BcbF6907D4feEEe8a8875543249bEa9D308E8 CTC=0x607F755149cFEB3a14E1Dc3A4E2450Cde7dfb04D TOKEN=0xe01f8743677da897f4e7de9073b57bf034fc2433 SENDER=0x30B125d5Fc58c1b8E3cCB2F1C71a1Cc847f024eE RECEIVER=0xC20a5455035Ab593682Cf9b9916b9407cc9e47f3 node inbox-stream-closer.js
+ */
+
 ethers = require("ethers");
 CTCAbi = require("./abis/CanonicalTransactionChain");
 HostAbi = require("./abis/ISuperfluid");
 CFAAbi = require("./abis/CFAv1");
 
-l2RPC = process.env.L2RPC;
 l1RPC = process.env.L1RPC;
 
 cfaAddr = process.env.CFA;
 hostAddr = process.env.HOST;
 
-l2Provider = new ethers.providers.JsonRpcProvider(l2RPC);
 l1Provider = new ethers.providers.JsonRpcProvider(l1RPC);
 
-host = new ethers.Contract(cfaAddr, HostAbi, l2Provider);
-cfa = new ethers.Contract(cfaAddr, CFAAbi, l2Provider);
+host = new ethers.Contract(cfaAddr, HostAbi);
+cfa = new ethers.Contract(cfaAddr, CFAAbi);
 
 tokenAddr = process.env.TOKEN;
 senderAddr = process.env.SENDER;
