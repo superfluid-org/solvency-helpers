@@ -33,4 +33,10 @@ l1Signer = new ethers.Wallet(privKey, l1Provider)
 ctc = new ethers.Contract(ctcAddr, CTCAbi, l1Signer);
 
 // see https://github.com/ethereum-optimism/optimism/blob/84c3da1cd07aa426fa9f39fca2509d4e3b5187ec/packages/contracts/contracts/L1/rollup/CanonicalTransactionChain.sol#L201
-ctc.enqueue(hostAddr, 500000, encodedHostCall); // target, gas limit, L2 calldata
+ctc.enqueue(hostAddr, 500000, encodedHostCall).then((res, err) => {
+    if (err) {
+        console.error("ERR:", err.toString());
+    } else {
+        console.log("RESULT:", JSON.stringify(res, null, 2));
+    }
+}); // target, gas limit, L2 calldata
