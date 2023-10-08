@@ -204,7 +204,8 @@ async function getCloseLinks(chainId, token, account) {
                                 belowWarningThreshold = true;
                             } else {
                                 // warning would be more appropriate, but we know and accept this for a few tokens and don't need a constant reminder
-                                infoLog(`insolvent: token ${superTokens[i]}, account ${account}`);
+                                infoLog(`insolvent: token ${superTokens[i]}, account ${account}`
+                                    + account.toLowerCase() === network.contractsV1.toga.toLowerCase() ? " (TOGA)" : "");
                             }
                         }
                     }
@@ -268,7 +269,7 @@ async function getCloseLinks(chainId, token, account) {
         infoLog(`ERR: ${errCnt} non-balance queries failed`);
         errExists = true;
     }
-    infoLog(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} below threshold) | ${rpcRequestCount} RPC requests made`);
+    infoLog(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} dust) | ${rpcRequestCount} RPC requests made`);
 
     if (triggerAlert) {
         warnLog(`:rotating_light: <!channel> ${NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
