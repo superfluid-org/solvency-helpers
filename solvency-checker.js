@@ -114,7 +114,9 @@ async function getCloseLinks(chainId, token, account) {
     const rpcUrl = rpcUrlOverride ? rpcUrlOverride : `https://${network.name}.sfrpc.x.superfluid.dev?app=solvency-checker`;
     const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
 
-    sfSubgraph.init(network.subgraphV1.hostedEndpoint);
+    const subgraphUrlOverride = process.env[`${network.uppercaseName}_SUBGRAPH_URL`];
+    const subgraphUrl = subgraphUrlOverride ? subgraphUrlOverride : `https://${network.name}.subgraph.x.superfluid.dev?app=solvency-checker`;
+    sfSubgraph.init(subgraphUrl);
     const web3 = new Web3(rpcUrl);
 
     // patch web3 to count RPC calls
