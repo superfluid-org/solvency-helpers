@@ -5,6 +5,7 @@ const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 const sfSubgraph = require("./superfluid-subgraph");
 const { toWad, wad4human } = require("@decentral.ee/web3-helpers");
 const sfMetaPromise = import("@superfluid-finance/metadata");
+const GDAv1Abi = require("./abis/GDAv1");
 
 // for using in a bash script which forwards to a Slack hook:
 /*
@@ -35,7 +36,8 @@ const DUST_THRESHOLD_FR_MULTIPLIER = 3600 * 24 * 10; // 10 years
 let triggerAlert = false;
 let errExists = false;
 let nrAccs = 0;
-let nrAccsWithNegFlow = 0;
+let nrAccsWithNegCFAFlow = 0;
+let nrAccsWithNegGDAFlow = 0;
 let nrAccsCritical = 0;
 let nrAccsP1 = 0; // in patrician period
 let nrAccsInsolvent = 0;
@@ -167,7 +169,7 @@ async function getCloseLinks(chainId, token, account) {
         try {
             const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
             const symbol = await superToken.methods.symbol().call();
-            const totalSupply = await superToken.methods.totalSupply().call();
+            //const totalSupply = await superToken.methods.totalSupply().call();
             const accounts = await sfSubgraph.getAllAccounts(superTokens[i]);
             // 1 year of flowrate if set, 0 otherwise
             const warningThresh = parseInt(dustFilter?.filter(e => e.address.toLowerCase() === superTokens[i].toLowerCase())[0]?.above) * 86400 * 365 || 0;
@@ -175,17 +177,23 @@ async function getCloseLinks(chainId, token, account) {
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
             nrAccs += accounts.length;
             const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.contractsV1.cfaV1);
+            const gda = new web3.eth.Contract(GDAv1Abi, network.contractsV1.gdaV1);
             // skip wrong host version tokens
             if ((await superToken.methods.getHost().call()).toLowerCase() !== network.contractsV1.host.toLowerCase()) continue;
             const accountStates = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
                 try {
                     const rtb = await superToken.methods.realtimeBalanceOfNow(account).call();
                     const availBalBN = web3.utils.toBN(rtb.availableBalance);
-                    const netFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call());
+                    const netCFAFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call());
+                    const netGDAFlow = web3.utils.toBN(await gda.methods.getNetFlow(superTokens[i], account).call());
+                    const netFlow = netCFAFlow.add(netGDAFlow);
                     let pppPeriod = 2; // default plebs
                     let belowWarningThreshold = false; // true suppresses warnings (mute insolvent dust streams)
-                    if (netFlow.ltn(0)) {
-                        nrAccsWithNegFlow++;
+                    if (netCFAFlow.ltn(0)) {
+                        nrAccsWithNegCFAFlow++;
+                    }
+                    if (netGDAFlow.ltn(0)) {
+                        nrAccsWithNegGDAFlow++;
                     }
                     if (availBalBN.ltn(0)) {
                         nrAccsCritical++;
@@ -235,11 +243,11 @@ async function getCloseLinks(chainId, token, account) {
                 infoLog(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
                 errExists = true;
             }
-
+/*
             const balancesSum = accountStates.reduce((acc, cur) => {
                 return acc.add(web3.utils.toBN(cur.availableBalance));
             }, web3.utils.toBN(0));
-
+*/
             const badAccountStates = accountStates.filter(
                 account => account.criticalForSeconds > reportCriticalAfter
                 && account.pppPeriod > 1
@@ -271,7 +279,7 @@ async function getCloseLinks(chainId, token, account) {
         infoLog(`ERR: ${errCnt} non-balance queries failed`);
         errExists = true;
     }
-    infoLog(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegFlow} w neg flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} dust) | ${rpcRequestCount} RPC requests made`);
+    infoLog(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegCFAFlow}|${nrAccsWithNegGDAFlow} w neg CFA|GDA flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} dust) | ${rpcRequestCount} RPC requests made`);
 
     if (triggerAlert) {
         warnLog(`:rotating_light: <!channel> ${NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
