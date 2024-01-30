@@ -130,7 +130,7 @@ async function getCloseLinks(chainId, token, account) {
     const superTokens = await sfSubgraph.getAllSuperTokens();
     fs.writeFileSync(`${CACHE_FILE_PREFIX}.tokens.json`, JSON.stringify(superTokens, null, 2));
     infoLog(`Checking ${superTokens.length} ${NETWORK_NAME} tokens… (RPC: ${rpcUrl})`);
-    
+
     // check chain/RPC health
     try {
         // check if the RPC connection works
@@ -160,7 +160,7 @@ async function getCloseLinks(chainId, token, account) {
         sentinelBal = await web3.eth.getBalance(SENTINEL_ACCOUNT);
         infoLog(`sentinel ${SENTINEL_ACCOUNT} balance: ${wad4human(sentinelBal)}`);
     }
-    
+
     let errCnt = 0;
     for (let i = 0; i < superTokens.length; ++i) {
         let innerErrCnt = 0;
@@ -169,7 +169,7 @@ async function getCloseLinks(chainId, token, account) {
             const symbol = await superToken.methods.symbol().call();
             const totalSupply = await superToken.methods.totalSupply().call();
             const accounts = await sfSubgraph.getAllAccounts(superTokens[i]);
-            // 1 year of flowrate
+            // 1 year of flowrate if set, 0 otherwise
             const warningThresh = parseInt(dustFilter?.filter(e => e.address.toLowerCase() === superTokens[i].toLowerCase())[0]?.above) * 86400 * 365 || 0;
 
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
@@ -196,7 +196,7 @@ async function getCloseLinks(chainId, token, account) {
                                 nrAccsP1++;
                             }
                         } // else: critical, but no open agreements which could be liquidated
-                        
+
                         if (! await superToken.methods.isAccountSolventNow(account).call()) {
                             pppPeriod = 3;
                             nrAccsInsolvent++;
@@ -207,7 +207,7 @@ async function getCloseLinks(chainId, token, account) {
                             } else {
                                 // warning would be more appropriate, but we know and accept this for a few tokens and don't need a constant reminder
                                 infoLog(`insolvent: token ${superTokens[i]}, account ${account}`
-                                    + account.toLowerCase() === network.contractsV1.toga.toLowerCase() ? " (TOGA)" : "");
+                                    + (account.toLowerCase() === network.contractsV1.toga.toLowerCase() ? " (TOGA)" : ""));
                             }
                         }
                     }
@@ -235,7 +235,7 @@ async function getCloseLinks(chainId, token, account) {
                 infoLog(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
                 errExists = true;
             }
-            
+
             const balancesSum = accountStates.reduce((acc, cur) => {
                 return acc.add(web3.utils.toBN(cur.availableBalance));
             }, web3.utils.toBN(0));
