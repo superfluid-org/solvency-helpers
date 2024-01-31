@@ -21,7 +21,8 @@ const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT; // optional
 const STREAM_CLOSER_URL = process.env.STREAM_CLOSER_URL || "https://cloudflare-ipfs.com/ipns/k2k4r8mh72qtu8510x7okj8c78nijugxr53edj7nxs8yecqy7zlyh4rz/stream-closer.html";
 const NETWORK_NAME = process.env.NETWORK_NAME;
 const CACHE_FILE_PREFIX=`./cache/${NETWORK_NAME}.${Math.floor(Date.now() / 1000)}`;
-const TOKEN_ALERT_SKIP_LIST=process.env.TOKEN_ALERT_SKIP_LIST?.split() || [];
+const TOKEN_ALERT_SKIP_LIST = process.env.TOKEN_ALERT_SKIP_LIST?.split() || [];
+const BUFFER_WARN_THRESHOLD_PCT = process.env.BUFFER_WARN_THRESHOLD_PCT || 15;
 
 /*
 How the dust filter works:
@@ -116,7 +117,7 @@ async function getCFACloseLinks(chainId, token, account) {
 
     // default: warn after 15% of the deposit is consumed.
     // with default ppp config, the patrician period ends at 12.5 %
-    const depositConsumedThresholdPct = process.env.BUFFER_WARN_THRESHOLD_PCT ? parseInt(process.env.BUFFER_WARN_THRESHOLD_PCT) : 15;
+    const depositConsumedThresholdPct = parseInt(BUFFER_WARN_THRESHOLD_PCT);
 
     const subgraphUrlOverride = process.env[`${network.uppercaseName}_SUBGRAPH_URL`];
     const subgraphUrl = subgraphUrlOverride ? subgraphUrlOverride : `https://${network.name}.subgraph.x.superfluid.dev?app=solvency-checker`;
