@@ -85,22 +85,21 @@ function internalLog(msg) {
 
 // returns an array of links to the stream closer Dapp with params set for specific streams
 // falls back to a single link with no receiver set if the graph query for outFlows fails
-async function getCloseLinks(chainId, token, account) {
-    let closeLinks = [];
-    closeLinks[0] = `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${token}&sender=${account}`;
+async function getCFACloseLinks(chainId, token, account) {
+    let cfaCloseLinks = [];
+    cfaCloseLinks[0] = `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${token}&sender=${account}`;
 
     // if something fails here, we provide a single link without receiver set
     try {
-        const outFlows = await sfSubgraph.getAllOutFlows(account);
+        const outFlows = await sfSubgraph.getAllOutFlows(token, account);
         const flowReceivers = outFlows
-            .filter(f => f.split("-")[2] === token) // only streams for the current token
             .map(f => f.split("-")[1]); // get the receiver from the id
 
-        closeLinks = flowReceivers.map(receiver => `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${token}&sender=${account}&receiver=${receiver}`);
+        cfaCloseLinks = flowReceivers.map(receiver => `${STREAM_CLOSER_URL}?chainId=${chainId}&token=${token}&sender=${account}&receiver=${receiver}`);
     } catch(e) {
         internalLog("getting outFlows failed: ", e);
     }
-    return closeLinks;
+    return cfaCloseLinks;
 }
 
 (async () => {
@@ -114,7 +113,10 @@ async function getCloseLinks(chainId, token, account) {
 
     const rpcUrlOverride = process.env[`${network.uppercaseName}_PROVIDER_URL`];
     const rpcUrl = rpcUrlOverride ? rpcUrlOverride : `https://${network.name}.sfrpc.x.superfluid.dev?app=solvency-checker`;
-    const reportCriticalAfter = process.env.REPORT_CRITIAL_AFTER || 600; // seconds
+
+    // default: warn after 15% of the deposit is consumed.
+    // with default ppp config, the patrician period ends at 12.5 %
+    const depositConsumedThresholdPct = process.env.BUFFER_WARN_THRESHOLD_PCT ? parseInt(process.env.BUFFER_WARN_THRESHOLD_PCT) : 15;
 
     const subgraphUrlOverride = process.env[`${network.uppercaseName}_SUBGRAPH_URL`];
     const subgraphUrl = subgraphUrlOverride ? subgraphUrlOverride : `https://${network.name}.subgraph.x.superfluid.dev?app=solvency-checker`;
@@ -130,6 +132,7 @@ async function getCloseLinks(chainId, token, account) {
     };
 
     const superTokens = await sfSubgraph.getAllSuperTokens();
+
     fs.writeFileSync(`${CACHE_FILE_PREFIX}.tokens.json`, JSON.stringify(superTokens, null, 2));
     infoLog(`Checking ${superTokens.length} ${NETWORK_NAME} tokens… (RPC: ${rpcUrl})`);
 
@@ -180,6 +183,7 @@ async function getCloseLinks(chainId, token, account) {
             const gda = new web3.eth.Contract(GDAv1Abi, network.contractsV1.gdaV1);
             // skip wrong host version tokens
             if ((await superToken.methods.getHost().call()).toLowerCase() !== network.contractsV1.host.toLowerCase()) continue;
+
             const accountStates = (await async.mapLimit(accounts, MAX_REQUESTS, async (account) => {
                 try {
                     const rtb = await superToken.methods.realtimeBalanceOfNow(account).call();
@@ -187,7 +191,8 @@ async function getCloseLinks(chainId, token, account) {
                     const netCFAFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call());
                     const netGDAFlow = web3.utils.toBN(await gda.methods.getNetFlow(superTokens[i], account).call());
                     const netFlow = netCFAFlow.add(netGDAFlow);
-                    let pppPeriod = 2; // default plebs
+
+                    let pppPeriod = 2; // default: plebs
                     let belowWarningThreshold = false; // true suppresses warnings (mute insolvent dust streams)
                     if (netCFAFlow.ltn(0)) {
                         nrAccsWithNegCFAFlow++;
@@ -200,13 +205,13 @@ async function getCloseLinks(chainId, token, account) {
                         // figure out if there's open streams by looking at the deposit
                         if (rtb.deposit !== "0" || rtb.owedDeposit !== "0") {
                             if (await cfa.methods.isPatricianPeriodNow(superTokens[i], account).call()) {
-                                pppPeriod = 1;
+                                pppPeriod = 1; // patrician
                                 nrAccsP1++;
                             }
                         } // else: critical, but no open agreements which could be liquidated
 
                         if (! await superToken.methods.isAccountSolventNow(account).call()) {
-                            pppPeriod = 3;
+                            pppPeriod = 3; // pirate
                             nrAccsInsolvent++;
                             nrAccsCritical--;
                             if (availBalBN.neg().lt(new web3.utils.BN(String(warningThresh)))) {
@@ -219,16 +224,14 @@ async function getCloseLinks(chainId, token, account) {
                             }
                         }
                     }
+
                     return {
                         account,
                         availableBalance: availBalBN.toString(),
-                        criticalForSeconds: parseInt((availBalBN.ltn(0) && netFlow.ltn(0)
-                            ? availBalBN.div(netFlow).toString()
-                            : "0")),
-                        criticalFor: (availBalBN.ltn(0) && netFlow.ltn(0)
-                            ? availBalBN.div(netFlow).toString()
-                            : "0")/3600 + " hours",
                         pppPeriod,
+                        depositConsumedPct: availBalBN.gten(0)
+                            ? 0
+                            : availBalBN.neg().muln(100).div(new web3.utils.BN(rtb.deposit)).toNumber(),
                         belowWarningThreshold
                     };
                 } catch (e) {
@@ -243,22 +246,18 @@ async function getCloseLinks(chainId, token, account) {
                 infoLog(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
                 errExists = true;
             }
-/*
-            const balancesSum = accountStates.reduce((acc, cur) => {
-                return acc.add(web3.utils.toBN(cur.availableBalance));
-            }, web3.utils.toBN(0));
-*/
-            const badAccountStates = accountStates.filter(
-                account => account.criticalForSeconds > reportCriticalAfter
-                && account.pppPeriod > 1
+
+            const badAccountStates = accountStates.filter((account) =>
+                account.depositConsumedPct > depositConsumedThresholdPct
                 && !account.belowWarningThreshold
             );
+
             if (badAccountStates.length > 0) {
-                warnLog(`Negative accounts for token ${symbol} (${superTokens[i]}) for longer than ${reportCriticalAfter} seconds outside patrician period`);
+                warnLog(`Negative accounts for token ${symbol} (${superTokens[i]}) with more than ${depositConsumedThresholdPct}% buffer consumed:`);
                 const outputStr = await Promise.all(badAccountStates.map(async a => {
-                    const closeLinks = await getCloseLinks(chainId, superTokens[i], a.account);
-                    const closeLinksStr = closeLinks.map((link, i) => `<${link}|Close${i+1}>`).join(", ");
-                    return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(a.pppPeriod)}, critical for ${a.criticalFor} | ${closeLinksStr}`
+                    const cfaCloseLinks = await getCFACloseLinks(chainId, superTokens[i], a.account);
+                    const cfaCloseLinksStr = cfaCloseLinks.map((link, i) => `<${link}|Close${i+1}>`).join(", ");
+                    return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(a.pppPeriod)}, buffer consumed ${a.depositConsumedPct}% | ${cfaCloseLinksStr}`
                 }));
                 warnLog(outputStr);
                 triggerAlert = true;

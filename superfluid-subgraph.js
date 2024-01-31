@@ -124,13 +124,14 @@ function getAllOutFlowsV0(account) {
         }`,
         res => res.data.data.accounts[0].flowsOwned,
         i => i.recipient.id
-    );   
+    );
 }
 
-function getAllOutFlows(account) {
+function getAllOutFlows(token, account) {
     return queryAllPages((lastId) => `{
         account(id: "${account}") {
             outflows(where: {
+                token: "${token}",
                 id_gt: "${lastId}",
                 currentFlowRate_not: "0",
             }) {
