@@ -181,7 +181,7 @@ async function getCFACloseLinks(chainId, token, account) {
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
             nrAccs += accounts.length;
             const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.contractsV1.cfaV1);
-            const gda = new web3.eth.Contract(GDAv1Abi, network.contractsV1.gdaV1);
+            const gda = new web3.eth.Contract(GDAv1Abi, process.env.GDA_ADDR || network.contractsV1.gdaV1);
             // skip wrong host version tokens
             if ((await superToken.methods.getHost().call()).toLowerCase() !== network.contractsV1.host.toLowerCase()) continue;
 
