@@ -39,6 +39,7 @@ let errExists = false;
 let nrAccs = 0;
 let nrAccsWithNegCFAFlow = 0;
 let nrAccsWithNegGDAFlow = 0;
+let nrAccsWithNegFlow = 0;
 let nrAccsCritical = 0;
 let nrAccsP1 = 0; // in patrician period
 let nrAccsInsolvent = 0;
@@ -181,7 +182,8 @@ async function getCFACloseLinks(chainId, token, account) {
             fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
             nrAccs += accounts.length;
             const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.contractsV1.cfaV1);
-            const gda = new web3.eth.Contract(GDAv1Abi, process.env.GDA_ADDR || network.contractsV1.gdaV1);
+            const gdaAddr = process.env.GDA_ADDR || network.contractsV1.gdaV1;
+            const gda = gdaAddr ? new web3.eth.Contract(GDAv1Abi, gdaAddr) : undefined;
             // skip wrong host version tokens
             if ((await superToken.methods.getHost().call()).toLowerCase() !== network.contractsV1.host.toLowerCase()) continue;
 
@@ -190,7 +192,7 @@ async function getCFACloseLinks(chainId, token, account) {
                     const rtb = await superToken.methods.realtimeBalanceOfNow(account).call();
                     const availBalBN = web3.utils.toBN(rtb.availableBalance);
                     const netCFAFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call());
-                    const netGDAFlow = web3.utils.toBN(await gda.methods.getNetFlow(superTokens[i], account).call());
+                    const netGDAFlow = gda ? web3.utils.toBN(await gda.methods.getNetFlow(superTokens[i], account).call()) : web3.utils.toBN(0);
                     const netFlow = netCFAFlow.add(netGDAFlow);
 
                     let pppPeriod = 2; // default: plebs
@@ -200,6 +202,9 @@ async function getCFACloseLinks(chainId, token, account) {
                     }
                     if (netGDAFlow.ltn(0)) {
                         nrAccsWithNegGDAFlow++;
+                    }
+                    if (netFlow.ltn(0)) {
+                        nrAccsWithNegFlow++;
                     }
                     if (availBalBN.ltn(0)) {
                         nrAccsCritical++;
@@ -230,7 +235,8 @@ async function getCFACloseLinks(chainId, token, account) {
                         account,
                         availableBalance: availBalBN.toString(),
                         pppPeriod,
-                        depositConsumedPct: availBalBN.gten(0)
+                        // special case: negative balance, but with no outflow left: need to avoid div by zero
+                        depositConsumedPct: availBalBN.gten(0) || rtb.deposit === "0"
                             ? 0
                             : availBalBN.neg().muln(100).div(new web3.utils.BN(rtb.deposit)).toNumber(),
                         belowWarningThreshold
@@ -279,7 +285,7 @@ async function getCFACloseLinks(chainId, token, account) {
         infoLog(`ERR: ${errCnt} non-balance queries failed`);
         errExists = true;
     }
-    infoLog(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegCFAFlow}|${nrAccsWithNegGDAFlow} w neg CFA|GDA flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} dust) | ${rpcRequestCount} RPC requests made`);
+    infoLog(`Checked ${superTokens.length} tokens, ${nrAccs} accs, ${nrAccsWithNegCFAFlow}|${nrAccsWithNegGDAFlow}|${nrAccsWithNegFlow} w neg CFA|GDA|total flowrate, ${nrAccsCritical} critical (of which ${nrAccsP1} in patrician period), ${nrAccsInsolvent} insolvent (of which ${nrAccsInsolventBelowThreshold} dust) | ${rpcRequestCount} RPC requests made`);
 
     if (triggerAlert) {
         warnLog(`:rotating_light: <!channel> ${NETWORK_NAME}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
