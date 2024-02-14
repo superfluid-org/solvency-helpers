@@ -145,11 +145,47 @@ function getAllOutFlows(token, account) {
     );
 }
 
+function getAccountsCriticalAt(timestamp) {
+  console.log("getAccountsCriticalAt...");
+    return queryAllPages((lastId) => `{
+          accountTokenSnapshots (first: ${MAX_ITEMS},
+            where: {
+              id_gt: "${lastId}",
+              totalNetFlowRate_lt: 0,
+              maybeCriticalAtTimestamp_lt: ${timestamp}
+            }
+          ) {
+            id
+            balanceUntilUpdatedAt
+            maybeCriticalAtTimestamp
+            isLiquidationEstimateOptimistic
+            activeIncomingStreamCount
+            activeOutgoingStreamCount
+            activeGDAOutgoingStreamCount
+            activeCFAOutgoingStreamCount
+            totalInflowRate
+            totalNetFlowRate
+            totalDeposit
+            token {
+              id
+              symbol
+            }
+            account {
+              id
+            }
+          }
+        }`,
+        res => res.data.data.accountTokenSnapshots,
+        i => i
+    );
+}
+
 
 module.exports = {
     init,
     queryAllPages,
     getAllSuperTokens,
     getAllAccounts,
-    getAllOutFlows
+    getAllOutFlows,
+    getAccountsCriticalAt
 }
