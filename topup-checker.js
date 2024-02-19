@@ -12,7 +12,6 @@ const minRunwayS = process.env.MIN_RUNWAY*3600 || 24*3600;
 
 // TODO: replace with external canonical network list
 NETWORKS = [
-    { chainId: 5, hostAddr: "0x22ff293e14F1EC3A09B137e9e06084AFd63adDF9", name: "eth-goerli" },
     { chainId: 42, hostAddr: "0xF0d7d1D47109bA426B9D8A3Cde1941327af1eea3", name: "eth-kovan" },
     { chainId: 4, hostAddr: "0xeD5B5b32110c3Ded02a07c8b8e97513FAfb883B6", name: "eth-rinkeby" },
     { chainId: 3, hostAddr: "0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2", name: "eth-ropsten" },
