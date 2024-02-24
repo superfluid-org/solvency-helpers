@@ -92,7 +92,7 @@ function getAllAccounts(token) {
     //console.log(`getAllAccounts(${token})...`);
     return queryAllPages((lastId) => `{
           accountTokenSnapshots (first: ${MAX_ITEMS},
-            where: { 
+            where: {
                 id_gt: "${lastId}",
                 token: "${token}"
             }
@@ -146,7 +146,6 @@ function getAllOutFlows(token, account) {
 }
 
 function getAccountsCriticalAt(timestamp) {
-  console.log("getAccountsCriticalAt...");
     return queryAllPages((lastId) => `{
           accountTokenSnapshots (first: ${MAX_ITEMS},
             where: {
