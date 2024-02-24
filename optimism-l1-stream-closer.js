@@ -5,6 +5,8 @@
  * mainnet portal: 0xbEb5Fc579115071764c7423A4f12eDde41f106Ed
  */
 
+// TODO: this wasn't tested with ethers.js v6, only with the previously v5.
+
 const { ethers, Wallet, Contract, utils } = require("ethers");
 HostAbi = require("./abis/ISuperfluid");
 CFAAbi = require("./abis/CFAv1");
