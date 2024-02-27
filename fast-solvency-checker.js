@@ -4,15 +4,13 @@ const { ethers } = require("ethers");
 const sfSubgraph = require("./superfluid-subgraph");
 const sfMeta = require("@superfluid-finance/metadata");
 const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
-const { collectDefaultMetrics, register } = require('prom-client');
+const { register } = require('prom-client');
 const promClient = require('prom-client');
 const PORT = process.env.PORT || 3000;
 
 // Create an Express app
 const app = express();
 
-// Initialize default metrics collection
-collectDefaultMetrics();
 
 // Constants
 const depositConsumedPctThreshold = process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD !== undefined ? Number(process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD) : 20;
@@ -130,9 +128,20 @@ const totalSkippedMetric = new promClient.Gauge({
 });
 
 // Expose Prometheus metrics endpoint
-app.get('/metrics', (req, res) => {
+
+app.get('/metrics', async (req, res, next) => {
     res.set('Content-Type', register.contentType);
-    res.end(register.metrics());
+    try {
+        const metrics = await register.metrics(); // Wait for the asynchronous operation to complete
+        res.end(metrics);
+    } catch (error) {
+        next(error); // Pass error to the next error handling middleware
+    }
+});
+
+// Start Express app to listen on the default port
+const server = app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
 
 // Allow script to be run periodically
@@ -146,12 +155,24 @@ async function executeScript() {
     console.log(`Checking ${networkName} using the fast solvency checker | alert threshold: ${depositConsumedPctThreshold}% deposit consumed`);
 
     try {
+    
+    
+
         // Retrieve critical accounts
         const criticalAccounts = await getCriticalAccounts(networkName);
 
-        // Set Prometheus metrics
-        totalCriticalMetric.set(criticalAccounts.length);
-        totalSkippedMetric.set(totalPotentiallyCriticalMetric.get() - criticalAccounts.length);
+        // Update Prometheus metrics
+        totalCriticalMetric.set(criticalAccounts.length); // Set total critical accounts
+
+        // Get the total potentially critical accounts
+        const totalPotentiallyCriticalMetricValues = totalPotentiallyCriticalMetric.get();
+        const totalPotentiallyCriticalAccounts = totalPotentiallyCriticalMetricValues && totalPotentiallyCriticalMetricValues.values && totalPotentiallyCriticalMetricValues.values.length > 0 ? totalPotentiallyCriticalMetricValues.values[0].value : 0;
+
+        // Calculate the total skipped accounts
+        const totalSkippedAccounts = totalPotentiallyCriticalAccounts - criticalAccounts.length;
+
+        // Set the total skipped accounts metric
+        totalSkippedMetric.set(totalSkippedAccounts);
 
         // Log critical accounts and metrics
         if (criticalAccounts.length === 0) {
@@ -161,16 +182,20 @@ async function executeScript() {
                 console.log(`Deposit consumed percentage for account ${account.account.id}: ${account.depositConsumedPct}%`);
             });
 
-            console.warn(`:rotating_light: <!channel> ${networkName}: NEGATIVE ACCOUNTS DETECTED! They might be still within liquidation period.`);
+            console.warn(`:rotating_light: <!channel> ${networkName}: NEGATIVE ACCOUNTS DETECTED! They might still be within the liquidation period.`);
         }
 
-        console.log(`Total potentially critical accounts: ${totalPotentiallyCriticalMetric.get()}`);
-        console.log(`Total critical accounts: ${totalCriticalMetric.get()}`);
-        console.log(`Total skipped accounts: ${totalSkippedMetric.get()}`);
+        // Log total potentially critical accounts, total critical accounts, and total skipped accounts
+        console.log(`Total potentially critical accounts: ${totalPotentiallyCriticalAccounts}`);
+        console.log(`Total critical accounts: ${criticalAccounts.length}`);
+        console.log(`Total skipped accounts: ${totalSkippedAccounts}`);
     } catch (error) {
         console.error(error.message);
     }
+
+    // Schedule the next execution
+    setTimeout(executeScript, 60000);
 }
 
 // Execute script every 1 minute
-setInterval(executeScript, 60000);
+setImmediate(executeScript, 60000);
