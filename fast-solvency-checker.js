@@ -1,10 +1,20 @@
 // Import ethers and other necessary modules
+const express = require('express');
 const { ethers } = require("ethers");
 const sfSubgraph = require("./superfluid-subgraph");
 const sfMeta = require("@superfluid-finance/metadata");
 const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
-//const MAX_PARALLEL_REQUESTS = process.env.MAX_PARALLEL_REQUESTS || 10;
+const { collectDefaultMetrics, register } = require('prom-client');
+const promClient = require('prom-client');
+const PORT = process.env.PORT || 3000;
 
+// Create an Express app
+const app = express();
+
+// Initialize default metrics collection
+collectDefaultMetrics();
+
+// Constants
 const depositConsumedPctThreshold = process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD !== undefined ? Number(process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD) : 20;
 
 // Add BigInt support for JSON serialization
@@ -34,6 +44,7 @@ function warnLog(msg) {
     warnMode = true;
 }
 
+// Function getCriticalAccounts
 async function getCriticalAccounts(networkName, config = undefined) {
     const network = sfMeta.getNetworkByName(networkName);
     if (!network) {
@@ -102,27 +113,64 @@ async function getAccountStatusFromRpc(provider, superTokenAddr, accountAddr) {
     };
 }
 
-// Make getCriticalAccounts available for import
-module.exports = { getCriticalAccounts };
+// Define Prometheus metrics
+const totalPotentiallyCriticalMetric = new promClient.Gauge({
+    name: 'total_potentially_critical_accounts',
+    help: 'Total potentially critical accounts found during the script execution',
+});
 
-// Allow script to be run directly
-if (require.main === module) {
+const totalCriticalMetric = new promClient.Gauge({
+    name: 'total_critical_accounts',
+    help: 'Total critical accounts detected during the script execution',
+});
+
+const totalSkippedMetric = new promClient.Gauge({
+    name: 'total_skipped_accounts',
+    help: 'Total skipped accounts during the script execution',
+});
+
+// Expose Prometheus metrics endpoint
+app.get('/metrics', (req, res) => {
+    res.set('Content-Type', register.contentType);
+    res.end(register.metrics());
+});
+
+// Allow script to be run periodically
+async function executeScript() {
     const networkName = process.argv[2];
     if (!networkName) {
         console.error("Usage: node subgraph-solvency-checker.js <network-name>");
         process.exit(1);
     }
 
-    infoLog(`Checking ${networkName} using the fast solvency checker | alert threshold: ${depositConsumedPctThreshold}% deposit consumed`);
+    console.log(`Checking ${networkName} using the fast solvency checker | alert threshold: ${depositConsumedPctThreshold}% deposit consumed`);
 
-    getCriticalAccounts(networkName)
-        .then(criticalAccounts => {
-            if (criticalAccounts.length === 0) {
-                infoLog(`No critical accounts hitting the deposit consumed threshold`);
-            } else {
-                warnLog(`${JSON.stringify(criticalAccounts)}`)
-                warnLog(`:rotating_light: <!channel> ${networkName}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
-            }
-        })
-        .catch(error => console.error(error.message));
+    try {
+        // Retrieve critical accounts
+        const criticalAccounts = await getCriticalAccounts(networkName);
+
+        // Set Prometheus metrics
+        totalCriticalMetric.set(criticalAccounts.length);
+        totalSkippedMetric.set(totalPotentiallyCriticalMetric.get() - criticalAccounts.length);
+
+        // Log critical accounts and metrics
+        if (criticalAccounts.length === 0) {
+            console.log(`No critical accounts hitting the deposit consumed threshold`);
+        } else {
+            criticalAccounts.forEach(account => {
+                console.log(`Deposit consumed percentage for account ${account.account.id}: ${account.depositConsumedPct}%`);
+            });
+
+            console.warn(`:rotating_light: <!channel> ${networkName}: NEGATIVE ACCOUNTS DETECTED! They might be still within liquidation period.`);
+        }
+
+        console.log(`Total potentially critical accounts: ${totalPotentiallyCriticalMetric.get()}`);
+        console.log(`Total critical accounts: ${totalCriticalMetric.get()}`);
+        console.log(`Total skipped accounts: ${totalSkippedMetric.get()}`);
+    } catch (error) {
+        console.error(error.message);
+    }
 }
+
+// Execute script every 1 minute
+setInterval(executeScript, 60000);
