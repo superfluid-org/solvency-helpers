@@ -112,19 +112,10 @@ async function getAccountStatusFromRpc(provider, superTokenAddr, accountAddr) {
 }
 
 // Define Prometheus metrics
-const totalPotentiallyCriticalMetric = new promClient.Gauge({
-    name: 'total_potentially_critical_accounts',
-    help: 'Total potentially critical accounts found during the script execution',
-});
-
 const totalCriticalMetric = new promClient.Gauge({
     name: 'total_critical_accounts',
     help: 'Total critical accounts detected during the script execution',
-});
-
-const totalSkippedMetric = new promClient.Gauge({
-    name: 'total_skipped_accounts',
-    help: 'Total skipped accounts during the script execution',
+    labelNames: ['network'] // Added labels
 });
 
 // Expose Prometheus metrics endpoint
@@ -162,17 +153,7 @@ async function executeScript() {
         const criticalAccounts = await getCriticalAccounts(networkName);
 
         // Update Prometheus metrics
-        totalCriticalMetric.set(criticalAccounts.length); // Set total critical accounts
-
-        // Get the total potentially critical accounts
-        const totalPotentiallyCriticalMetricValues = totalPotentiallyCriticalMetric.get();
-        const totalPotentiallyCriticalAccounts = totalPotentiallyCriticalMetricValues && totalPotentiallyCriticalMetricValues.values && totalPotentiallyCriticalMetricValues.values.length > 0 ? totalPotentiallyCriticalMetricValues.values[0].value : 0;
-
-        // Calculate the total skipped accounts
-        const totalSkippedAccounts = totalPotentiallyCriticalAccounts - criticalAccounts.length;
-
-        // Set the total skipped accounts metric
-        totalSkippedMetric.set(totalSkippedAccounts);
+        totalCriticalMetric.set({ network: networkName }, criticalAccounts.length); // Set total critical accounts
 
         // Log critical accounts and metrics
         if (criticalAccounts.length === 0) {
@@ -185,10 +166,8 @@ async function executeScript() {
             console.warn(`:rotating_light: <!channel> ${networkName}: NEGATIVE ACCOUNTS DETECTED! They might still be within the liquidation period.`);
         }
 
-        // Log total potentially critical accounts, total critical accounts, and total skipped accounts
-        console.log(`Total potentially critical accounts: ${totalPotentiallyCriticalAccounts}`);
+        // Log total critical accounts
         console.log(`Total critical accounts: ${criticalAccounts.length}`);
-        console.log(`Total skipped accounts: ${totalSkippedAccounts}`);
     } catch (error) {
         console.error(error.message);
     }
