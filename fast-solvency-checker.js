@@ -4,6 +4,7 @@ const { ethers } = require("ethers");
 const sfSubgraph = require("./superfluid-subgraph");
 const sfMeta = require("@superfluid-finance/metadata");
 const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
+//const MAX_PARALLEL_REQUESTS = process.env.MAX_PARALLEL_REQUESTS || 10;
 const { register } = require('prom-client');
 const promClient = require('prom-client');
 const fs = require('fs');
@@ -46,7 +47,6 @@ function warnLog(msg) {
     warnMode = true;
 }
 
-// Function getCriticalAccounts
 async function getCriticalAccounts(networkName, config = undefined) {
     // Try block so errors from subgraph/rpcs won't cause exit
     try {
