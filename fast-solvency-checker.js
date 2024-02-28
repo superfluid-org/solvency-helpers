@@ -87,7 +87,14 @@ async function getCriticalAccounts(networkName, config = undefined) {
                     return;
                 }
 
-                const depositConsumedPct = Number(-availableBalance * 100n / deposit);
+                if (insolvent) {
+                    insolventMetric.inc({ network: networkName, service: 'solvency-checker' });
+                }
+        
+                // Update deposit consumed percentage histogram
+                depositConsumedPctHistogram.observe({ network: networkName, service: 'solvency-checker' }, Number(availableBalance * 100n / deposit));
+
+                const depositConsumedPct = Number(availableBalance * 100n / deposit);
                 if (depositConsumedPct < depositConsumedPctThreshold) {
                     infoLog(`Account ${mca.account.id} deposit consumed ${depositConsumedPct}% below threshold ${depositConsumedPctThreshold}, skipping...`);
                     return;
@@ -131,13 +138,25 @@ async function getAccountStatusFromRpc(provider, superTokenAddr, accountAddr) {
 
 // Define Prometheus metrics
 const totalCriticalMetric = new promClient.Gauge({
-    name: 'total_critical_accounts',
+    name: 'nr_critical_accounts',
     help: 'Total critical accounts detected during the script execution',
     labelNames: ['network', 'service'] // Added labels
 });
 
-// Expose Prometheus metrics endpoint
+const insolventMetric = new promClient.Gauge({
+    name: 'nr_insolvent_accounts',
+    help: 'Total number of accounts detected as insolvent during the script execution',
+    labelNames: ['network', 'service'] // labels
+});
 
+const depositConsumedPctHistogram = new promClient.Histogram({
+    name: 'nr_accounts_by_deposit_consumed_pct_histogram',
+    help: 'Histogram of deposit consumed percentage for critical accounts',
+    labelNames: ['network', 'service'], // labels
+    buckets: [-Infinity, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] // bucket ranges
+});
+
+// Expose Prometheus metrics endpoint
 app.get('/metrics', async (req, res, next) => {
     res.set('Content-Type', register.contentType);
     try {
@@ -171,10 +190,24 @@ async function executeScript(networks) {
         } else {
             criticalAccounts.forEach(account => {
                 console.log(`Deposit consumed percentage for account ${account.account.id}: ${account.depositConsumedPct}%`);
+
+                // Convert BigInt to number
+                const availableBalanceNumber = Number(account.availableBalance);
+
             });
 
             console.warn(`:rotating_light: <!channel> ${network}: NEGATIVE ACCOUNTS DETECTED! They might still be within the liquidation period.`);
         }
+
+       // Update insolventMetric based on criticalAccounts
+        const insolventCount = criticalAccounts.filter(account => account.insolvent).length;
+        insolventMetric.labels(network, 'solvency-checker').inc(insolventCount);
+
+        // Update depositConsumedPctHistogram based on criticalAccounts
+        const depositConsumedPcts = criticalAccounts.map(account => account.depositConsumedPct);
+        depositConsumedPcts.forEach(depositConsumedPct => {
+            depositConsumedPctHistogram.labels(network, 'solvency-checker').observe(depositConsumedPct);
+        });
 
         // Log total critical accounts for the current network
         console.log(`Total critical accounts for ${network}: ${criticalAccounts.length}`);
