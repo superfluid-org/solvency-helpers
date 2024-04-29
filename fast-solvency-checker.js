@@ -5,7 +5,7 @@ const sfMeta = require("@superfluid-finance/metadata");
 const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 //const MAX_PARALLEL_REQUESTS = process.env.MAX_PARALLEL_REQUESTS || 10;
 
-const depositConsumedPctThreshold = process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD !== undefined ? Number(process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD) : 20;
+const depositConsumedPctThreshold = process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD !== undefined ? Number(process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD) : 30;
 
 // Add BigInt support for JSON serialization
 BigInt.prototype.toJSON = function () {
