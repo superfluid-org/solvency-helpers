@@ -78,7 +78,7 @@ async function getCriticalAccounts(networkName, config = undefined) {
             debugLog(`acc ${mca.account.id} is critical, adding to critical accounts`);
         }
         if (depositConsumedPct < depositConsumedPctThreshold) {
-            infoLog(`acc ${mca.account.id} deposit consumed ${depositConsumedPct}% below threshold ${depositConsumedPctThreshold}, skipping...`);
+            debugLog(`acc ${mca.account.id} deposit consumed ${depositConsumedPct}% below threshold ${depositConsumedPctThreshold}, skipping...`);
             return null;
         }
 
