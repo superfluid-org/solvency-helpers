@@ -24,6 +24,12 @@ function infoLog(msg) {
     }
 }
 
+function debugLog(msg) {
+    if (process.env.DEBUG) {
+        infoLog(msg);
+    }
+}
+
 // this is reported
 function warnLog(msg) {
     if (deferredLog !== "") {
@@ -41,7 +47,7 @@ async function getCriticalAccounts(networkName, config = undefined) {
     }
 
     if (network.contractsV1.gdaV1) {
-        infoLog(`network with GDA at ${network.contractsV1.gdaV1}`);
+        debugLog(`network with GDA at ${network.contractsV1.gdaV1}`);
     }
 
     const subgraphUrl = config?.subgraphUrl || `https://${network.name}.subgraph.x.superfluid.dev`;
@@ -54,22 +60,23 @@ async function getCriticalAccounts(networkName, config = undefined) {
 
     const now = Math.floor(Date.now() / 1000);
     const maybeCriticalAccounts = await sfSubgraph.getAccountsCriticalAt(now);
-    infoLog(`Found ${maybeCriticalAccounts.length} potentially critical accounts`);
+    debugLog(`Found ${maybeCriticalAccounts.length} potentially critical accounts`);
 
     // now get those actually critical by checking their state via RPC
     // this closure takes a maybeCriticalAccount (mca) object and queries its on-chain state.
     // it returns null if the account is not critical, otherwise it returns the mca object with on-chain state added
     const getEnrichedAccountStateIfCritical = async (mca) => {
         const { critical, insolvent, availableBalance, deposit } = await getAccountStatusFromRpc(provider, mca.token.id, mca.account.id);
-        infoLog(`acc ${mca.account.id}, token ${mca.token.id} (${mca.token.symbol}): balance ${ethers.formatEther(availableBalance)}, deposit ${ethers.formatEther(deposit)} |${mca.isLiquidationEstimateOptimistic ? " optimistic" : ""} ${critical ? "critical" : ""} ${insolvent ? "insolvent" : ""}`);
+        const depositConsumedPct = Number(-availableBalance * 100n / deposit);
+
+        debugLog(`acc ${mca.account.id}, token ${mca.token.id} (${mca.token.symbol}): balance ${ethers.formatEther(availableBalance)}, deposit ${ethers.formatEther(deposit)} (${depositConsumedPct}% consumed) |${mca.isLiquidationEstimateOptimistic ? " optimistic" : ""} ${critical ? "critical" : ""} ${insolvent ? "insolvent" : ""}`);
 
         if (availableBalance >= 0n || deposit === 0n) {
-            infoLog(`acc ${mca.account.id} has positive balance or no deposit, skipping...`);
+            debugLog(`acc ${mca.account.id} has positive balance or no deposit, skipping...`);
             return null;
         } else {
-            infoLog(`acc ${mca.account.id} is critical, adding to critical accounts`);
+            debugLog(`acc ${mca.account.id} is critical, adding to critical accounts`);
         }
-        const depositConsumedPct = Number(-availableBalance * 100n / deposit);
         if (depositConsumedPct < depositConsumedPctThreshold) {
             infoLog(`acc ${mca.account.id} deposit consumed ${depositConsumedPct}% below threshold ${depositConsumedPctThreshold}, skipping...`);
             return null;
@@ -80,7 +87,7 @@ async function getCriticalAccounts(networkName, config = undefined) {
             availableBalance,
             deposit,
             // deposit consumed percentage, as Number
-            depositConsumedPct: Number(availableBalance * 100n / deposit)
+            depositConsumedPct: depositConsumedPct
         };
     };
 
@@ -120,7 +127,10 @@ if (require.main === module) {
             if (criticalAccounts.length === 0) {
                 infoLog(`No critical accounts hitting the deposit consumed threshold`);
             } else {
-                warnLog(`${JSON.stringify(criticalAccounts)}`)
+                criticalAccounts.forEach(acc => {
+                    warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${ethers.formatEther(acc.availableBalance)}, deposit ${ethers.formatEther(acc.deposit)} (${acc.depositConsumedPct}% consumed) ${acc.isCritical ? "critical" : ""} ${acc.isInsolvent ? "insolvent" : ""}`);
+                });
+
                 warnLog(`:rotating_light: <!channel> ${networkName}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
             }
         })
