@@ -143,7 +143,7 @@ async function getCFACloseLinks(chainId, token, account) {
         // check if the RPC connection works
         await web3.eth.getChainId();
     } catch(e) {
-        warnLog(`communicating with ${NETWORK_NAME} RPC ${rpcUrl} failed`);
+        warnLog(`:rotating_light: <!channel> communicating with ${NETWORK_NAME} RPC ${rpcUrl} failed`);
         process.exit();
     }
 
