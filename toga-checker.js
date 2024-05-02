@@ -43,12 +43,13 @@ async function getSuperTokens(graphAPI) {
     }
 
     const rpcUrl = `https://${network.name}.rpc.x.superfluid.dev?app=toga-checker`;
+    const subgraphUrl = `https://${network.name}.subgraph.x.superfluid.dev`;
 
     const web3 = new Web3(rpcUrl);
     const toga = new web3.eth.Contract(togaABI, network.contractsV1.toga);
     const tblPIC = [];
     const tblNoPIC = [];
-    const superTokens = await getSuperTokens(network.subgraphV1.hostedEndpoint);
+    const superTokens = await getSuperTokens(subgraphUrl);
 
     for (let i = 0; i < superTokens.length; i++) {
         try {
