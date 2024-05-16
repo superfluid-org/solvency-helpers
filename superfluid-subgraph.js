@@ -145,6 +145,24 @@ function getAllOutFlows(token, account) {
     );
 }
 
+function getAllOutFlowDistributions(token, account) {
+  return queryAllPages((lastId) => `{
+        account(id: "${account}") {
+            pools(where: {
+                token: "${token}",
+                id_gt: "${lastId}",
+                flowRate_not: "0",
+            }) {
+                id
+                flowRate
+                }
+            }
+        }`,
+        res => res.data.data.account.pools,
+        i => i.id
+    );
+}
+
 function getAccountsCriticalAt(timestamp) {
     return queryAllPages((lastId) => `{
           accountTokenSnapshots (first: ${MAX_ITEMS},
@@ -186,5 +204,6 @@ module.exports = {
     getAllSuperTokens,
     getAllAccounts,
     getAllOutFlows,
+    getAllOutFlowDistributions,
     getAccountsCriticalAt
 }

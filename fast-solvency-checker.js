@@ -120,19 +120,31 @@ if (require.main === module) {
         process.exit(1);
     }
 
-    infoLog(`Checking ${networkName} using the fast solvency checker | alert threshold: ${depositConsumedPctThreshold}% deposit consumed`);
+    function formatNumber(num, digits) {
+        return parseFloat(num).toFixed(digits);
+    }
 
-    getCriticalAccounts(networkName)
-        .then(criticalAccounts => {
+    (async () => {
+        try {
+            infoLog(`Checking ${networkName} using the fast solvency checker | alert threshold: ${depositConsumedPctThreshold}% deposit consumed`);
+
+            const criticalAccounts = await getCriticalAccounts(networkName);
+
             if (criticalAccounts.length === 0) {
                 infoLog(`No critical accounts hitting the deposit consumed threshold`);
             } else {
-                criticalAccounts.forEach(acc => {
-                    warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${ethers.formatEther(acc.availableBalance)}, deposit ${ethers.formatEther(acc.deposit)} (${acc.depositConsumedPct}% consumed) ${acc.isCritical ? "critical" : ""} ${acc.isInsolvent ? "insolvent" : ""}`);
-                });
+                let cfaFlows = [];
+                let gdaFlows = [];
+                for (const acc of criticalAccounts) {
+                    cfaFlows = await sfSubgraph.getAllOutFlows(acc.token.id, acc.account.id);
+                    gdaFlows = await sfSubgraph.getAllOutFlowDistributions(acc.token.id, acc.account.id);
+                    warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)}, deposit ${formatNumber(ethers.formatEther(acc.deposit), 8)} (${acc.depositConsumedPct}% consumed), ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows`);
+                }
 
-                warnLog(`:rotating_light: <!channel> ${networkName}: NEGATIVE ACCOUNTS DETECTED! They might be still with-in liquidation period.`);
+                warnLog(`:rotating_light: <!channel> ${networkName}: ${criticalAccounts.length} NEGATIVE ACCOUNTS DETECTED (${cfaFlows.length} CFA flows, ${gdaFlows.length} GDA flows)! They might be still with-in liquidation period.`);
             }
-        })
-        .catch(error => console.error(error.message));
+        } catch (error) {
+            console.error(error.message);
+        }
+    })();
 }
