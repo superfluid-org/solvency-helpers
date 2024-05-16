@@ -133,15 +133,17 @@ if (require.main === module) {
             if (criticalAccounts.length === 0) {
                 infoLog(`No critical accounts hitting the deposit consumed threshold`);
             } else {
-                let cfaFlows = [];
-                let gdaFlows = [];
+                let nrCfaFlows = 0;
+                let nrGdaFlows = 0;
                 for (const acc of criticalAccounts) {
-                    cfaFlows = await sfSubgraph.getAllOutFlows(acc.token.id, acc.account.id);
-                    gdaFlows = await sfSubgraph.getAllOutFlowDistributions(acc.token.id, acc.account.id);
+                    const cfaFlows = await sfSubgraph.getAllOutFlows(acc.token.id, acc.account.id);
+                    const gdaFlows = await sfSubgraph.getAllOutFlowDistributions(acc.token.id, acc.account.id);
                     warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)}, deposit ${formatNumber(ethers.formatEther(acc.deposit), 8)} (${acc.depositConsumedPct}% consumed), ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows`);
+                    nrCfaFlows += cfaFlows.length;
+                    nrGdaFlows += gdaFlows.length;
                 }
 
-                warnLog(`:rotating_light: <!channel> ${networkName}: ${criticalAccounts.length} NEGATIVE ACCOUNTS DETECTED (${cfaFlows.length} CFA flows, ${gdaFlows.length} GDA flows)! They might be still with-in liquidation period.`);
+                warnLog(`:rotating_light: <!channel> ${networkName}: ${criticalAccounts.length} NEGATIVE ACCOUNTS DETECTED (${nrCfaFlows} CFA flows, ${nrGdaFlows} GDA flows)! They might be still with-in liquidation period.`);
             }
         } catch (error) {
             console.error(error.message);
