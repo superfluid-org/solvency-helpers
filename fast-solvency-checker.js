@@ -6,6 +6,7 @@ const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 //const MAX_PARALLEL_REQUESTS = process.env.MAX_PARALLEL_REQUESTS || 10;
 
 const depositConsumedPctThreshold = process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD !== undefined ? Number(process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD) : 30;
+const streamCloserUrl = process.env.STREAM_CLOSER_URL || "https://cloudflare-ipfs.com/ipns/k2k4r8mh72qtu8510x7okj8c78nijugxr53edj7nxs8yecqy7zlyh4rz/stream-closer.html";
 
 // Add BigInt support for JSON serialization
 BigInt.prototype.toJSON = function () {
@@ -119,6 +120,7 @@ if (require.main === module) {
         console.error("Usage: node subgraph-solvency-checker.js <network-name>");
         process.exit(1);
     }
+    const network = sfMeta.getNetworkByName(networkName);
 
     function formatNumber(num, digits) {
         return parseFloat(num).toFixed(digits);
@@ -136,11 +138,23 @@ if (require.main === module) {
                 let nrCfaFlows = 0;
                 let nrGdaFlows = 0;
                 for (const acc of criticalAccounts) {
+                    let extraInfo = "";
                     const cfaFlows = await sfSubgraph.getAllOutFlows(acc.token.id, acc.account.id);
                     const gdaFlows = await sfSubgraph.getAllOutFlowDistributions(acc.token.id, acc.account.id);
-                    warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)}, deposit ${formatNumber(ethers.formatEther(acc.deposit), 8)} (${acc.depositConsumedPct}% consumed), ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows`);
                     nrCfaFlows += cfaFlows.length;
                     nrGdaFlows += gdaFlows.length;
+                    if (process.env.PRINT_CFA_FLOWS_CSV) {
+                        console.log("token,sender,receiver");
+                        for (const flow of cfaFlows) {
+                            console.log(`${flow.split("-")[2]},${flow.split("-")[0]},${flow.split("-")[1]}`);
+                        }
+                    }
+                    if (process.env.PRINT_CFA_FLOWS_LINKS) {
+                        const cfaCloseLinks = cfaFlows.map(f => f.split("-")[1]) // get the receiver from the id
+                            .map(receiver => `${streamCloserUrl}?chainId=${network.chainId}&token=${acc.token.id}&sender=${acc.account.id}&receiver=${receiver}`);
+                        extraInfo += cfaCloseLinks.map((link, i) => `<${link}|Close${i+1}>`).join(", ");
+                    }
+                    warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)}, deposit ${formatNumber(ethers.formatEther(acc.deposit), 8)} (${acc.depositConsumedPct}% consumed), ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows` + (extraInfo !== "" ? ` | ${extraInfo}` : ""));
                 }
 
                 warnLog(`:rotating_light: <!channel> ${networkName}: ${criticalAccounts.length} NEGATIVE ACCOUNTS DETECTED (${nrCfaFlows} CFA flows, ${nrGdaFlows} GDA flows)! They might be still with-in liquidation period.`);
