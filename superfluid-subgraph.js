@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const MAX_ITEMS = 1000;
+const MAX_ITEMS = 100;
 
 let subgraphUrl;
 
@@ -24,7 +24,6 @@ async function queryAllPages(queryFn, toItems, itemFn) {
     let lastId = "";
     const items = [];
     while (true) {
-        //console.log(`query with lastId ${lastId} ...`);
         const res = await graphql(queryFn(lastId));
         //console.log("done");
         if (res.status !== 200 || res.data.errors) {

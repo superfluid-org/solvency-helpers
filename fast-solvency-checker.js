@@ -6,6 +6,7 @@ const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 //const MAX_PARALLEL_REQUESTS = process.env.MAX_PARALLEL_REQUESTS || 10;
 
 const depositConsumedPctThreshold = process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD !== undefined ? Number(process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD) : 30;
+const debtUSDWarnThreshold = process.env.DEBT_USD_WARN_THRESHOLD !== undefined ? Number(process.env.DEBT_USD_WARN_THRESHOLD) : 2;
 const streamCloserUrl = process.env.STREAM_CLOSER_URL || "https://cloudflare-ipfs.com/ipns/k2k4r8mh72qtu8510x7okj8c78nijugxr53edj7nxs8yecqy7zlyh4rz/stream-closer.html";
 
 // Add BigInt support for JSON serialization
@@ -41,6 +42,15 @@ function warnLog(msg) {
     warnMode = true;
 }
 
+// values of 1 token in micro usd. 10000 = 0.01 USD
+// TODO: move to config file and or module which queries a price oracle
+const tokenPrices = {
+    "base-mainnet": {
+        // DEGENx
+        "0x1eff3dd78f4a14abfa9fa66579bd3ce9e1b30529": 20000
+    }
+};
+
 async function getCriticalAccounts(networkName, config = undefined) {
     const network = sfMeta.getNetworkByName(networkName);
     if (!network) {
@@ -51,7 +61,7 @@ async function getCriticalAccounts(networkName, config = undefined) {
         debugLog(`network with GDA at ${network.contractsV1.gdaV1}`);
     }
 
-    const subgraphUrl = config?.subgraphUrl || `https://${network.name}.subgraph.x.superfluid.dev`;
+    const subgraphUrl = config?.subgraphUrl || `https://${network.name}.sfsubgraph.x.superfluid.dev`;
     const rpcUrl = config?.rpcUrl || `https://${network.name}.rpc.x.superfluid.dev?app=fast-solvency-checker`;
     infoLog(`Using subgraph ${subgraphUrl}, rpc ${rpcUrl}`);
 
@@ -70,6 +80,10 @@ async function getCriticalAccounts(networkName, config = undefined) {
         const { critical, insolvent, availableBalance, deposit } = await getAccountStatusFromRpc(provider, mca.token.id, mca.account.id);
         const depositConsumedPct = Number(-availableBalance * 100n / deposit);
 
+        const tokenPrice = tokenPrices[networkName]?.[mca.token.id];
+
+        const availableBalanceUSD = tokenPrice ? Math.floor(Number(availableBalance * BigInt(tokenPrice) / 1000000000000000000n) / 10000) / 100 : undefined;
+
         debugLog(`acc ${mca.account.id}, token ${mca.token.id} (${mca.token.symbol}): balance ${ethers.formatEther(availableBalance)}, deposit ${ethers.formatEther(deposit)} (${depositConsumedPct}% consumed) |${mca.isLiquidationEstimateOptimistic ? " optimistic" : ""} ${critical ? "critical" : ""} ${insolvent ? "insolvent" : ""}`);
 
         if (availableBalance >= 0n || deposit === 0n) {
@@ -86,9 +100,11 @@ async function getCriticalAccounts(networkName, config = undefined) {
         return {
             ...mca,
             availableBalance,
+            availableBalanceUSD,
             deposit,
             // deposit consumed percentage, as Number
-            depositConsumedPct: depositConsumedPct
+            depositConsumedPct,
+            debtUSD: Math.floor(depositConsumedPct < 100 ? 0 : -availableBalanceUSD * (depositConsumedPct - 100)) / 100
         };
     };
 
@@ -137,6 +153,7 @@ if (require.main === module) {
             } else {
                 let nrCfaFlows = 0;
                 let nrGdaFlows = 0;
+                let nrAlertAccs = 0;
                 for (const acc of criticalAccounts) {
                     let extraInfo = "";
                     const cfaFlows = await sfSubgraph.getAllOutFlows(acc.token.id, acc.account.id);
@@ -154,10 +171,26 @@ if (require.main === module) {
                             .map(receiver => `${streamCloserUrl}?chainId=${network.chainId}&token=${acc.token.id}&sender=${acc.account.id}&receiver=${receiver}`);
                         extraInfo += cfaCloseLinks.map((link, i) => `<${link}|Close${i+1}>`).join(", ");
                     }
-                    warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)}, deposit ${formatNumber(ethers.formatEther(acc.deposit), 8)} (${acc.depositConsumedPct}% consumed), ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows` + (extraInfo !== "" ? ` | ${extraInfo}` : ""));
+                    if (acc.availableBalanceUSD !== undefined) {
+                        // assumption: if we have a price, we only need the token symbol, not address
+                        const logStr = `token ${acc.token.symbol}, account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)} (${acc.availableBalanceUSD}$), ${acc.depositConsumedPct}% deposit consumed, ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows` + (acc.debtUSD > 0 ? `, ${acc.debtUSD}$ debt` : "")  + (extraInfo !== "" ? ` | ${extraInfo}` : "");
+                        // warn if more debt than configured is accumulated, or negative balance exceeds 10x that, or 10x+ of the deposit is consumed
+                        if (acc.debtUSD > debtUSDWarnThreshold || acc.availableBalanceUSD < -debtUSDWarnThreshold*10 || acc.depositConsumedPct >= 1000) {
+                            warnLog(logStr);
+                            nrAlertAccs++;
+                        } else {
+                            debugLog(logStr);
+                        }
+                    } else {
+                        warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)}, deposit ${formatNumber(ethers.formatEther(acc.deposit), 8)} (${acc.depositConsumedPct}%}$ consumed), ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows` + (extraInfo !== "" ? ` | ${extraInfo}` : ""));
+                        nrAlertAccs++; // we don't know the value of the deposit, so err on the safe side and trigger an alert
+                    }
                 }
 
-                warnLog(`:rotating_light: <!channel> ${networkName}: ${criticalAccounts.length} NEGATIVE ACCOUNTS DETECTED (${nrCfaFlows} CFA flows, ${nrGdaFlows} GDA flows)! They might be still with-in liquidation period.`);
+                warnLog(`${networkName}: ${criticalAccounts.length} negative accounts detected with a total of ${nrCfaFlows} CFA outflows and ${nrGdaFlows} GDA outflowdistributions.`);
+                if (nrAlertAccs > 0) {
+                    warnLog(`:rotating_light: <!channel> ${nrAlertAccs} accounts met alarm conditions: debt > ${debtUSDWarnThreshold}$ or negative balance > ${10*debtUSDWarnThreshold}$ or > 10x buffer consumed.`);
+                }
             }
         } catch (error) {
             console.error(error.message);
