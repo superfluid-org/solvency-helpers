@@ -56,10 +56,7 @@ const minRunwayS = process.env.MIN_RUNWAY*3600 || 24*3600;
 
         const cfaNetFlow = await cfa.getNetFlow(item.superToken, item.account);
         const gdaNetFlow = await gda.getNetFlow(item.superToken, item.account);
-        console.log(`cfaNetFlow: ${cfaNetFlow.toString()}`);
-        console.log(`gdaNetFlow: ${gdaNetFlow.toString()}`);
         const netFlow = cfaNetFlow + gdaNetFlow;
-        console.log(`netFlow: ${netFlow.toString()}`);
 
         const runWayS = netFlow === 0n ? undefined : bal / -netFlow;
 
