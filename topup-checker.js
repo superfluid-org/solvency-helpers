@@ -6,6 +6,7 @@ const { ethers } = require("ethers");
 const { wad4human } = require("@decentral.ee/web3-helpers");
 const ISuperfluidAbi = require("./abis/ISuperfluid.json");
 const ICFAv1 = require("./abis/ICFAv1.json");
+const IGDAv1 = require("./abis/GDAv1.json");
 const IERC20 = require("./abis/IERC20.json");
 const sfMeta = require("@superfluid-finance/metadata");
 
@@ -33,6 +34,9 @@ const minRunwayS = process.env.MIN_RUNWAY*3600 || 24*3600;
     const cfaAddr = await host.getAgreementClass(ethers.keccak256(
         ethers.toUtf8Bytes("org.superfluid-finance.agreements.ConstantFlowAgreement.v1")));
     const cfa = new ethers.Contract(cfaAddr, ICFAv1, provider);
+    const gdaAddr = await host.getAgreementClass(ethers.keccak256(
+        ethers.toUtf8Bytes("org.superfluid-finance.agreements.GeneralDistributionAgreement.v1")));
+    const gda = new ethers.Contract(gdaAddr, IGDAv1, provider);
 
     // ======
 
@@ -50,7 +54,12 @@ const minRunwayS = process.env.MIN_RUNWAY*3600 || 24*3600;
 
         const bal = await token.balanceOf(item.account);
 
-        const netFlow = await cfa.getNetFlow(item.superToken, item.account);
+        const cfaNetFlow = await cfa.getNetFlow(item.superToken, item.account);
+        const gdaNetFlow = await gda.getNetFlow(item.superToken, item.account);
+        console.log(`cfaNetFlow: ${cfaNetFlow.toString()}`);
+        console.log(`gdaNetFlow: ${gdaNetFlow.toString()}`);
+        const netFlow = cfaNetFlow + gdaNetFlow;
+        console.log(`netFlow: ${netFlow.toString()}`);
 
         const runWayS = netFlow === 0n ? undefined : bal / -netFlow;
 
@@ -58,14 +67,16 @@ const minRunwayS = process.env.MIN_RUNWAY*3600 || 24*3600;
             Account: item.account,
             Token: tokenSymbol,
             Balance: wad4human(bal),
-            NetFlowDaily: wad4human(netFlow * 86400n),
+            CFANetFlowDaily: wad4human(cfaNetFlow * 86400n),
+            GDANetFlowDaily: wad4human(gdaNetFlow * 86400n),
+            TotalNetFlowDaily: wad4human(netFlow * 86400n),
             RunWayHours: netFlow >= 0n ? '∞' : (runWayS / 3600n).toString()
         });
         raiseAlarm = raiseAlarm || (netFlow < 0n && runWayS < minRunwayS);
     }
     console.log(`Network: ${network.name} - top-up checker`);
     console.log('```');
-    console.table(table, ["Account", "Token", "Balance", "NetFlowDaily", "RunWayHours"]);
+    console.table(table, ["Account", "Token", "Balance", "CFANetFlowDaily", "GDANetFlowDaily", "TotalNetFlowDaily", "RunWayHours"]);
     console.log('```');
 
     if(raiseAlarm) {
