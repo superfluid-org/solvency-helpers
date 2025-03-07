@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@decentral.ee/web3-helpers": "^0.5.3",
+    "@ethersproject/rlp": "^5.7.0",
     "@superfluid-finance/js-sdk": "^0.5.12",
     "@superfluid-finance/metadata": "^1.2.2",
     "async": "^3.2.3",

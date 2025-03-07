@@ -61,15 +61,15 @@ async function getCriticalAccounts(networkName, config = undefined) {
         debugLog(`network with GDA at ${network.contractsV1.gdaV1}`);
     }
 
-    const subgraphUrl = config?.subgraphUrl || `https://${network.name}.sfsubgraph.x.superfluid.dev`;
+    const subgraphUrl = config?.subgraphUrl || `https://${network.name}.subgraph.x.superfluid.dev`;
     const rpcUrl = config?.rpcUrl || `https://${network.name}.rpc.x.superfluid.dev?app=fast-solvency-checker`;
     infoLog(`Using subgraph ${subgraphUrl}, rpc ${rpcUrl}`);
 
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-
     sfSubgraph.init(subgraphUrl);
 
     const now = Math.floor(Date.now() / 1000);
+    // get accounts with net negative flowrate and which may be critical now according to subgraph accounting
     const maybeCriticalAccounts = await sfSubgraph.getAccountsCriticalAt(now);
     debugLog(`Found ${maybeCriticalAccounts.length} potentially critical accounts`);
 
@@ -78,22 +78,18 @@ async function getCriticalAccounts(networkName, config = undefined) {
     // it returns null if the account is not critical, otherwise it returns the mca object with on-chain state added
     const getEnrichedAccountStateIfCritical = async (mca) => {
         const { critical, insolvent, availableBalance, deposit } = await getAccountStatusFromRpc(provider, mca.token.id, mca.account.id);
+        if (availableBalance >= 0n || deposit === 0n) {
+            debugLog(`  solvent acc ${mca.account.id} has positive balance or no deposit (flows), skipping...`);
+            return null;
+        }
         const depositConsumedPct = Number(-availableBalance * 100n / deposit);
-
         const tokenPrice = tokenPrices[networkName]?.[mca.token.id];
-
         const availableBalanceUSD = tokenPrice ? Math.floor(Number(availableBalance * BigInt(tokenPrice) / 1000000000000000000n) / 10000) / 100 : undefined;
 
-        debugLog(`acc ${mca.account.id}, token ${mca.token.id} (${mca.token.symbol}): balance ${ethers.formatEther(availableBalance)}, deposit ${ethers.formatEther(deposit)} (${depositConsumedPct}% consumed) |${mca.isLiquidationEstimateOptimistic ? " optimistic" : ""} ${critical ? "critical" : ""} ${insolvent ? "insolvent" : ""}`);
+        debugLog(`  critical acc ${mca.account.id}, token ${mca.token.id} (${mca.token.symbol}): balance ${ethers.formatEther(availableBalance)}, deposit ${ethers.formatEther(deposit)} (${depositConsumedPct}% consumed) |${mca.isLiquidationEstimateOptimistic ? " optimistic" : ""} ${critical ? "critical" : ""} ${insolvent ? "insolvent" : ""}`);
 
-        if (availableBalance >= 0n || deposit === 0n) {
-            debugLog(`acc ${mca.account.id} has positive balance or no deposit, skipping...`);
-            return null;
-        } else {
-            debugLog(`acc ${mca.account.id} is critical, adding to critical accounts`);
-        }
         if (depositConsumedPct < depositConsumedPctThreshold) {
-            debugLog(`acc ${mca.account.id} deposit consumed ${depositConsumedPct}% below threshold ${depositConsumedPctThreshold}, skipping...`);
+            debugLog(`  acc ${mca.account.id} deposit consumed ${depositConsumedPct}% below threshold ${depositConsumedPctThreshold}, skipping...`);
             return null;
         }
 

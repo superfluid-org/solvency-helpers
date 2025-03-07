@@ -166,9 +166,10 @@ function getAccountsCriticalAt(timestamp) {
     return queryAllPages((lastId) => `{
           accountTokenSnapshots (first: ${MAX_ITEMS},
             where: {
-              id_gt: "${lastId}",
-              totalNetFlowRate_lt: 0,
-              maybeCriticalAtTimestamp_lt: ${timestamp}
+              and: [
+                {id_gt: "${lastId}"},
+                {or: [{maybeCriticalAtTimestamp_lt: "${timestamp}"}, {balanceUntilUpdatedAt_lt: "0"}]}
+              ]
             }
           ) {
             id
