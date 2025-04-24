@@ -168,7 +168,13 @@ function getAccountsCriticalAt(timestamp) {
             where: {
               and: [
                 {id_gt: "${lastId}"},
-                {or: [{maybeCriticalAtTimestamp_lt: "${timestamp}"}, {balanceUntilUpdatedAt_lt: "0"}]}
+                {or: [
+                  {maybeCriticalAtTimestamp_lt: "${timestamp}"},
+                  {and: [
+                    {balanceUntilUpdatedAt_lte: "0"},
+                    {activeOutgoingStreamCount_gt: 0}
+                  ]}
+                ]}
               ]
             }
           ) {
