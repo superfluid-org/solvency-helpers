@@ -42,14 +42,55 @@ function warnLog(msg) {
     warnMode = true;
 }
 
-// values of 1 token in micro usd. 10000 = 0.01 USD
-// TODO: move to config file and or module which queries a price oracle
-const tokenPrices = {
-    "base-mainnet": {
-        // DEGENx
-        "0x1eff3dd78f4a14abfa9fa66579bd3ce9e1b30529": 20000
+/*
+Return the token price as BigInt in 
+we have an api for getting token prices. Example call:
+curl https://token-prices-api.superfluid.dev/v1/base-mainnet/0x46fd5cfB4c12D87acD3a13e92BAa53240C661D93
+{"price":2607.99,"last_updated":"2025-05-16T09:41:43.599Z"}
+This function shall get the price form the api and cache it locally (just in memory)
+If a price is in the cache, return it. Otherwise, get it from the api and cache it.
+*/
+const TOKEN_PRICES_API_URL_BASE = "https://token-prices-api.superfluid.dev/v1";
+// Cache for both completed prices and pending promises
+const tokenPriceCache = {};
+
+async function getTokenPrice(networkName, tokenId) {
+    const cacheKey = `${networkName}-${tokenId}`;
+    
+    // Return the cached value or pending promise if it exists
+    if (tokenPriceCache[cacheKey] !== undefined) {
+        debugLog(`Using cached result for ${cacheKey}`);
+        return tokenPriceCache[cacheKey];
     }
-};
+
+    // Create and cache the promise for this request
+    debugLog(`Initiating fetch for token price ${cacheKey}`);
+    tokenPriceCache[cacheKey] = fetch(`${TOKEN_PRICES_API_URL_BASE}/${networkName}/${tokenId}`)
+        .then(response => response.json())
+        .then(data => {
+            // Check if we have price data
+            if (!data || data.price === undefined) {
+                debugLog(`Missing price data for ${cacheKey}: ${JSON.stringify(data)}`);
+                // Store null in cache to prevent retries
+                tokenPriceCache[cacheKey] = null;
+                return null;
+            }
+            
+            // Convert to BigInt (price in micro USD)
+            const microUsdPrice = BigInt(Math.floor(data.price * 1000000));
+            tokenPriceCache[cacheKey] = microUsdPrice;
+            debugLog(`Token price for ${cacheKey} fetched: ${data.price} (${microUsdPrice} microUSD)`);
+            return microUsdPrice;
+        })
+        .catch(error => {
+            // Store null in cache to prevent retries
+            debugLog(`Error fetching token price for ${cacheKey}: ${error.message}`);
+            tokenPriceCache[cacheKey] = null;
+            return null;
+        });
+
+    return tokenPriceCache[cacheKey];
+}
 
 async function getCriticalAccounts(networkName, config = undefined) {
     const network = sfMeta.getNetworkByName(networkName);
@@ -83,8 +124,10 @@ async function getCriticalAccounts(networkName, config = undefined) {
             return null;
         }
         const depositConsumedPct = Number(-availableBalance * 100n / deposit);
-        const tokenPrice = tokenPrices[networkName]?.[mca.token.id];
-        const availableBalanceUSD = tokenPrice ? Math.floor(Number(availableBalance * BigInt(tokenPrice) / 1000000000000000000n) / 10000) / 100 : undefined;
+        //const tokenPrice = tokenPrices[networkName]?.[mca.token.id];
+        //const tokenPrice = tokenPrices[networkName]?.[mca.token.id];
+        const tokenPrice = await getTokenPrice(networkName, mca.token.id);
+        const availableBalanceUSD = tokenPrice ? Math.round(Number(availableBalance * BigInt(tokenPrice) / 1000000000000000000n) / 10000) / 100 : undefined;
 
         debugLog(`  critical acc ${mca.account.id}, token ${mca.token.id} (${mca.token.symbol}): balance ${ethers.formatEther(availableBalance)}, deposit ${ethers.formatEther(deposit)} (${depositConsumedPct}% consumed) |${mca.isLiquidationEstimateOptimistic ? " optimistic" : ""} ${critical ? "critical" : ""} ${insolvent ? "insolvent" : ""}`);
 
@@ -173,13 +216,17 @@ if (require.main === module) {
                         // warn if more debt than configured is accumulated, or negative balance exceeds 10x that, or 10x+ of the deposit is consumed
                         if (acc.debtUSD > debtUSDWarnThreshold || acc.availableBalanceUSD < -debtUSDWarnThreshold*10 || acc.depositConsumedPct >= 1000) {
                             warnLog(logStr);
-                            nrAlertAccs++;
+                            if (acc.token.isListed) {
+                                nrAlertAccs++;
+                            }
                         } else {
                             debugLog(logStr);
                         }
                     } else {
-                        warnLog(`token ${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)}, deposit ${formatNumber(ethers.formatEther(acc.deposit), 8)} (${acc.depositConsumedPct}%} consumed), ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows` + (extraInfo !== "" ? ` | ${extraInfo}` : ""));
-                        nrAlertAccs++; // we don't know the value of the deposit, so err on the safe side and trigger an alert
+                        warnLog(`token ${acc.token.isListed ? "" : "(unlisted) "}${acc.token.id} (${acc.token.symbol}), account ${acc.account.id}: balance ${formatNumber(ethers.formatEther(acc.availableBalance), 8)}, deposit ${formatNumber(ethers.formatEther(acc.deposit), 8)} (${acc.depositConsumedPct}%) consumed), ${cfaFlows.length} CFAFlows, ${gdaFlows.length} GDAFlows` + (extraInfo !== "" ? ` | ${extraInfo}` : ""));
+                        if (acc.token.isListed) {
+                            nrAlertAccs++; // we don't know the value of the deposit, so err on the safe side and trigger an alert
+                        }
                     }
                 }
 

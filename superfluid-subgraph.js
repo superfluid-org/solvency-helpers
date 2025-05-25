@@ -192,6 +192,7 @@ function getAccountsCriticalAt(timestamp) {
             token {
               id
               symbol
+              isListed
             }
             account {
               id
