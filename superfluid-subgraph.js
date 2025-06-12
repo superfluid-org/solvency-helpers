@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const MAX_ITEMS = 100;
+const MAX_ITEMS = 1000;
 
 let subgraphUrl;
 
@@ -87,8 +87,7 @@ function getAllAccountsV0(token) {
     )))).then(results => Array.from(new Set(results.flat()/*.concat([network.rewardAddress])*/.map(i => i.toLowerCase()))));
 }
 
-function getAllAccounts(token) {
-    //console.log(`getAllAccounts(${token})...`);
+function getAllAccountsForToken(token) {
     return queryAllPages((lastId) => `{
           accountTokenSnapshots (first: ${MAX_ITEMS},
             where: {
@@ -105,6 +104,18 @@ function getAllAccounts(token) {
         res => res.data.data.accountTokenSnapshots,
         i => i.account.id
     );
+}
+
+function getAllAccounts() {
+  return queryAllPages(
+    (lastId) => `{
+      accounts(first: ${MAX_ITEMS}, where: { id_gt: "${lastId}" }, orderBy: id) {
+        id
+      }
+    }`,
+    res => res.data.data.accounts,
+    i => i.id
+  );
 }
 
 function getAllOutFlowsV0(account) {
@@ -209,6 +220,7 @@ module.exports = {
     init,
     queryAllPages,
     getAllSuperTokens,
+    getAllAccountsForToken,
     getAllAccounts,
     getAllOutFlows,
     getAllOutFlowDistributions,

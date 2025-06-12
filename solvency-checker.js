@@ -175,7 +175,7 @@ async function getCFACloseLinks(chainId, token, account) {
             const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
             const symbol = await superToken.methods.symbol().call();
             //const totalSupply = await superToken.methods.totalSupply().call();
-            const accounts = await sfSubgraph.getAllAccounts(superTokens[i]);
+            const accounts = await sfSubgraph.getAllAccountsForToken(superTokens[i]);
             // 1 year of flowrate if set, 0 otherwise
             const warningThresh = parseInt(dustFilter?.filter(e => e.address.toLowerCase() === superTokens[i].toLowerCase())[0]?.above) * 86400 * 365 || 0;
 

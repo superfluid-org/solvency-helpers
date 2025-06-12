@@ -13,7 +13,7 @@ const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 const HDWalletProvider = require("@truffle/hdwallet-provider");
 const TruffleContract = require("@truffle/contract");
 
-const { asleep, selectNetwork, getAllSuperTokens, getAllAccounts, getAllOutFlows } = require("./superfluid-subgraph");
+const { asleep, selectNetwork, getAllSuperTokens, getAllAccountsForToken, getAllOutFlows } = require("./superfluid-subgraph");
 
 const MAX_REQUESTS = 200;
 const BATCH_LIQUIDATOR = [
@@ -87,7 +87,7 @@ const BATCH_LIQUIDATOR = [
             const symbol = await superToken.methods.symbol().call();
             const totalSupply = await superToken.methods.totalSupply().call();
             console.log("Super Token", symbol, superToken._address);
-            const accounts = await getAllAccounts(superTokens[i]);
+            const accounts = await getAllAccountsForToken(superTokens[i]);
             console.log("Number of Accounts", accounts.length);
             const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.cfaAddress);
             // skip wrong host version tokens
