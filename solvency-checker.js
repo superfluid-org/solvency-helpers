@@ -133,7 +133,7 @@ async function getCFACloseLinks(chainId, token, account) {
         return originalSend.apply(this, arguments);
     };
 
-    const superTokens = await sfSubgraph.getAllSuperTokens();
+    const superTokens = await sfSubgraph.getAllSuperTokensExtended();
 
     fs.writeFileSync(`${CACHE_FILE_PREFIX}.tokens.json`, JSON.stringify(superTokens, null, 2));
     infoLog(`Checking ${superTokens.length} ${NETWORK_NAME} tokens… (RPC: ${rpcUrl})`);
@@ -172,14 +172,14 @@ async function getCFACloseLinks(chainId, token, account) {
     for (let i = 0; i < superTokens.length; ++i) {
         let innerErrCnt = 0;
         try {
-            const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i]);
+            const superToken = new web3.eth.Contract(SuperfluidABI.ISuperToken, superTokens[i].id);
             const symbol = await superToken.methods.symbol().call();
             //const totalSupply = await superToken.methods.totalSupply().call();
-            const accounts = await sfSubgraph.getAllAccountsForToken(superTokens[i]);
+            const accounts = await sfSubgraph.getAllAccountsForToken(superTokens[i].id);
             // 1 year of flowrate if set, 0 otherwise
-            const warningThresh = parseInt(dustFilter?.filter(e => e.address.toLowerCase() === superTokens[i].toLowerCase())[0]?.above) * 86400 * 365 || 0;
+            const warningThresh = parseInt(dustFilter?.filter(e => e.address.toLowerCase() === superTokens[i].id.toLowerCase())[0]?.above) * 86400 * 365 || 0;
 
-            fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accounts.json`, JSON.stringify(accounts, null, 2));
+            fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i].id}.accounts.json`, JSON.stringify(accounts, null, 2));
             nrAccs += accounts.length;
             const cfa = new web3.eth.Contract(SuperfluidABI.IConstantFlowAgreementV1, network.contractsV1.cfaV1);
             const gdaAddr = process.env.GDA_ADDR || network.contractsV1.gdaV1;
@@ -191,8 +191,8 @@ async function getCFACloseLinks(chainId, token, account) {
                 try {
                     const rtb = await superToken.methods.realtimeBalanceOfNow(account).call();
                     const availBalBN = web3.utils.toBN(rtb.availableBalance);
-                    const netCFAFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i], account).call());
-                    const netGDAFlow = gda ? web3.utils.toBN(await gda.methods.getNetFlow(superTokens[i], account).call()) : web3.utils.toBN(0);
+                    const netCFAFlow = web3.utils.toBN(await cfa.methods.getNetFlow(superTokens[i].id, account).call());
+                    const netGDAFlow = gda ? web3.utils.toBN(await gda.methods.getNetFlow(superTokens[i].id, account).call()) : web3.utils.toBN(0);
                     const netFlow = netCFAFlow.add(netGDAFlow);
 
                     let pppPeriod = 2; // default: plebs
@@ -210,7 +210,7 @@ async function getCFACloseLinks(chainId, token, account) {
                         nrAccsCritical++;
                         // figure out if there's open streams by looking at the deposit
                         if (rtb.deposit !== "0" || rtb.owedDeposit !== "0") {
-                            if (await cfa.methods.isPatricianPeriodNow(superTokens[i], account).call()) {
+                            if (await cfa.methods.isPatricianPeriodNow(superTokens[i].id, account).call()) {
                                 pppPeriod = 1; // patrician
                                 nrAccsP1++;
                             }
@@ -225,7 +225,7 @@ async function getCFACloseLinks(chainId, token, account) {
                                 belowWarningThreshold = true;
                             } else {
                                 // warning would be more appropriate, but we know and accept this for a few tokens and don't need a constant reminder
-                                infoLog(`insolvent: token ${superTokens[i]}, account ${account}`
+                                infoLog(`insolvent: token ${superTokens[i].id}, account ${account}`
                                     + (account.toLowerCase() === network.contractsV1.toga.toLowerCase() ? " (TOGA)" : ""));
                             }
                         }
@@ -247,7 +247,7 @@ async function getCFACloseLinks(chainId, token, account) {
                 }
             }));
 
-            fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i]}.accountStates.json`, JSON.stringify(accountStates, null, 2));
+            fs.writeFileSync(`${CACHE_FILE_PREFIX}.${superTokens[i].id}.accountStates.json`, JSON.stringify(accountStates, null, 2));
             if (innerErrCnt > 0) {
                 // TODO: we need to somehow better deal with this
                 infoLog(`ERR: ${symbol}: ${innerErrCnt}/${accounts.length} queries failed`);
@@ -260,16 +260,16 @@ async function getCFACloseLinks(chainId, token, account) {
             );
 
             if (badAccountStates.length > 0) {
-                warnLog(`Negative accounts for token ${symbol} (${superTokens[i]}) with more than ${depositConsumedThresholdPct}% buffer consumed:`);
+                warnLog(`Negative accounts for token ${symbol} (${superTokens[i].id}) with more than ${depositConsumedThresholdPct}% buffer consumed:`);
                 const outputStr = await Promise.all(badAccountStates.map(async a => {
-                    const cfaCloseLinks = await getCFACloseLinks(chainId, superTokens[i], a.account);
+                    const cfaCloseLinks = await getCFACloseLinks(chainId, superTokens[i].id, a.account);
                     const cfaCloseLinksStr = cfaCloseLinks.map((link, i) => `<${link}|Close${i+1}>`).join(", ");
                     return `  acc ${a.account}, availableBalance ${a.availableBalance / 1e18}, pppPeriod ${pppPeriodName(a.pppPeriod)}, buffer consumed ${a.depositConsumedPct}% | ${cfaCloseLinksStr}`
                 }));
                 warnLog(outputStr);
                 triggerAlert = true;
-                if (TOKEN_ALERT_SKIP_LIST.some(e => e.toLowerCase() === superTokens[i])) {
-                    // token is flagged as not triggering alerts
+                if (!superTokens[i].isListed || TOKEN_ALERT_SKIP_LIST.some(e => e.toLowerCase() === superTokens[i].id)) {
+                    // token is not listed or flagged as not triggering alerts
                     triggerAlert = false;
                 }
             }

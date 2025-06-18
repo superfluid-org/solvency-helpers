@@ -73,6 +73,24 @@ function getAllSuperTokens() {
     );
 }
 
+function getAllSuperTokensExtended() {
+  //console.log("getAllSuperTokens...");
+  return queryAllPages((lastId) => `{
+        tokens (first: ${MAX_ITEMS},
+          where: {
+            id_gt: "${lastId}",
+            isSuperToken: true
+          }
+        ) {
+          id
+          isListed
+        }
+      }`,
+      res => res.data.data.tokens,
+      i => i
+  );
+}
+
 function getAllAccountsV0(token) {
     return Promise.all(Array.from("0123456789abcdefABCDEF").map((a) => (queryAllPages((skip) => `query {
             accountWithTokens(where: {
@@ -220,6 +238,7 @@ module.exports = {
     init,
     queryAllPages,
     getAllSuperTokens,
+    getAllSuperTokensExtended,
     getAllAccountsForToken,
     getAllAccounts,
     getAllOutFlows,
