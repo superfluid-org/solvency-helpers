@@ -173,7 +173,8 @@ function getAllOutFlows(token, account) {
     );
 }
 
-function getAllOutFlowDistributions(token, account) {
+// apparently this does not what it's supposed to do
+function getAllOutFlowDistributionsV0(token, account) {
   return queryAllPages((lastId) => `{
         account(id: "${account}") {
             pools(where: {
@@ -187,6 +188,30 @@ function getAllOutFlowDistributions(token, account) {
             }
         }`,
         res => res.data.data.account.pools,
+        i => i.id
+    );
+}
+
+function getAllOutFlowDistributions(token, account) {
+  return queryAllPages((lastId) => `{
+      poolDistributors (where: {
+        and: [
+          { id_gt: "${lastId}" },
+          { pool_: { token: "${token}" } },
+          { account: "${account}"}
+        ]
+      } ) {
+        id
+        pool {
+          id
+          flowRate
+          totalUnits
+          totalMembers
+        }
+        flowRate
+      }
+    }`,
+        res => res.data.data.poolDistributors,
         i => i.id
     );
 }
