@@ -54,6 +54,7 @@ const TOKEN_PRICES_API_URL_BASE = "https://token-prices-api.superfluid.dev/v1";
 // Cache for both completed prices and pending promises
 const tokenPriceCache = {};
 
+// returns the price as BigInt in micro USD
 async function getTokenPrice(networkName, tokenId) {
     const cacheKey = `${networkName}-${tokenId}`;
     
@@ -127,7 +128,7 @@ async function getCriticalAccounts(networkName, config = undefined) {
         //const tokenPrice = tokenPrices[networkName]?.[mca.token.id];
         //const tokenPrice = tokenPrices[networkName]?.[mca.token.id];
         const tokenPrice = await getTokenPrice(networkName, mca.token.id);
-        const availableBalanceUSD = tokenPrice ? Math.round(Number(availableBalance * BigInt(tokenPrice) / 1000000000000000000n) / 10000) / 100 : undefined;
+        const availableBalanceUSD = tokenPrice ? Number(availableBalance * BigInt(tokenPrice) / 1000000000000000000n) / 1000000 : undefined;
 
         debugLog(`  critical acc ${mca.account.id}, token ${mca.token.id} (${mca.token.symbol}): balance ${ethers.formatEther(availableBalance)}, deposit ${ethers.formatEther(deposit)} (${depositConsumedPct}% consumed) |${mca.isLiquidationEstimateOptimistic ? " optimistic" : ""} ${critical ? "critical" : ""} ${insolvent ? "insolvent" : ""}`);
 
