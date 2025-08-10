@@ -73,17 +73,20 @@ function getAllSuperTokens() {
     );
 }
 
-function getAllSuperTokensExtended() {
+function getAllSuperTokensExtended(onlyListed = false) {
   //console.log("getAllSuperTokens...");
   return queryAllPages((lastId) => `{
         tokens (first: ${MAX_ITEMS},
           where: {
             id_gt: "${lastId}",
-            isSuperToken: true
+            isSuperToken: true,
+            ${onlyListed ? "isListed: true" : ""}
           }
         ) {
           id
           isListed
+          name
+          symbol
         }
       }`,
       res => res.data.data.tokens,

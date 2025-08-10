@@ -3,34 +3,7 @@ const Web3 = require("web3");
 const axios = require("axios");
 const { wad4human, toBN } = require("@decentral.ee/web3-helpers");
 const sfMetaPromise = import("@superfluid-finance/metadata");
-
-async function getSuperTokens(graphAPI) {
-    // 1000 is the max currently supported by the graph protocol
-    const MAX_NR_ITEMS = 1000;
-
-    const query = `query MyQuery {
-  tokens(where: {isSuperToken: true}, first: ${MAX_NR_ITEMS}) {
-    name
-    symbol
-    isSuperToken
-    isListed
-    id
-  }
-}`;
-    const res = await axios.post(graphAPI, { query });
-
-    if (res.status !== 200 || res.data.errors) {
-        console.error(res.data);
-        process.exit(1);
-    }
-
-    if (res.data.data.tokens.length >= MAX_NR_ITEMS) {
-        // if this happens, notify about it. Solution: implement pagination for the query
-        console.error(`graphql query reached max nr of items (${MAX_NR_ITEMS}), may be incomplete`);
-    }
-
-    return res.data.data.tokens;
-}
+const sfSubgraph = require("./superfluid-subgraph");
 
 (async () => {
     const sfMeta = (await sfMetaPromise).default;
@@ -43,13 +16,15 @@ async function getSuperTokens(graphAPI) {
     }
 
     const rpcUrl = `https://${network.name}.rpc.x.superfluid.dev?app=toga-checker`;
-    const subgraphUrl = `https://${network.name}.subgraph.x.superfluid.dev`;
+    const subgraphUrl = `https://${network.name}.subgraph.x.superfluid.dev?app=toga-checker`;
+    sfSubgraph.init(subgraphUrl);
 
     const web3 = new Web3(rpcUrl);
     const toga = new web3.eth.Contract(togaABI, network.contractsV1.toga);
     const tblPIC = [];
     const tblNoPIC = [];
-    const superTokens = await getSuperTokens(subgraphUrl);
+
+    const superTokens = await sfSubgraph.getAllSuperTokensExtended(!(process.env.INCLUDE_UNLISTED === "true"));
 
     for (let i = 0; i < superTokens.length; i++) {
         try {
