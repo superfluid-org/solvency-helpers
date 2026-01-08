@@ -18,7 +18,7 @@ done
 const MAX_REQUESTS = process.env.MAX_REQUESTS || 200;
 const RPC_DRIFT_WARN_THRESHOLD = process.env.RPC_DRIFT_WARN_THRESHOLD || 900; // seconds
 const SENTINEL_ACCOUNT = process.env.SENTINEL_ACCOUNT; // optional
-const STREAM_CLOSER_URL = process.env.STREAM_CLOSER_URL || "https://cloudflare-ipfs.com/ipns/k2k4r8mh72qtu8510x7okj8c78nijugxr53edj7nxs8yecqy7zlyh4rz/stream-closer.html";
+const STREAM_CLOSER_URL = process.env.STREAM_CLOSER_URL || "https://ipfs.io/ipns/k2k4r8mh72qtu8510x7okj8c78nijugxr53edj7nxs8yecqy7zlyh4rz/stream-closer.html";
 const NETWORK_NAME = process.env.NETWORK_NAME;
 const CACHE_FILE_PREFIX=`./cache/${NETWORK_NAME}.${Math.floor(Date.now() / 1000)}`;
 const TOKEN_ALERT_SKIP_LIST = process.env.TOKEN_ALERT_SKIP_LIST?.split() || [];

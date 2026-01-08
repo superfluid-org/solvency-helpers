@@ -7,7 +7,7 @@ const SuperfluidABI = require("@superfluid-finance/js-sdk/src/abi");
 
 const depositConsumedPctThreshold = process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD !== undefined ? Number(process.env.DEPOSIT_CONSUMED_PCT_THRESHOLD) : 30;
 const debtUSDWarnThreshold = process.env.DEBT_USD_WARN_THRESHOLD !== undefined ? Number(process.env.DEBT_USD_WARN_THRESHOLD) : 2;
-const streamCloserUrl = process.env.STREAM_CLOSER_URL || "https://rawcdn.githack.com/superfluid-org/protocol-monorepo/ff19f4d939992760ae4508053f25c2ebcfd106af/packages/ethereum-contracts/utils/stream-closer.html";
+const streamCloserUrl = process.env.STREAM_CLOSER_URL || "https://rawcdn.githack.com/superfluid-org/protocol-monorepo/dev/packages/ethereum-contracts/utils/stream-closer.html";
 
 // Add BigInt support for JSON serialization
 BigInt.prototype.toJSON = function () {
