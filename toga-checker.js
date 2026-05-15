@@ -21,35 +21,61 @@ const sfSubgraph = require("./superfluid-subgraph");
 
     const web3 = new Web3(rpcUrl);
     const toga = new web3.eth.Contract(togaABI, network.contractsV1.toga);
-    const tblPIC = [];
+    const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+    const tblWithPIC = [];
     const tblNoPIC = [];
+    const tblIdle = [];
 
     const superTokens = await sfSubgraph.getAllSuperTokensExtended(!(process.env.INCLUDE_UNLISTED === "true"));
 
     for (let i = 0; i < superTokens.length; i++) {
         try {
             const picInfo = await toga.methods.getCurrentPICInfo(superTokens[i].id).call();
-            if(process.env.ALL_TOKENS || picInfo.bond !== '0' || picInfo.pic !== "0x0000000000000000000000000000000000000000") {
-                tblPIC.push({
-                    name: superTokens[i].name,
-                    symbol: superTokens[i].symbol,
-                    PIC: picInfo.pic,
-                    Bond: wad4human(picInfo.bond),
-                    ExitRatePerDay: wad4human(toBN(picInfo.exitRate).mul(toBN(3600 * 24)))
-                });
-            } else {
-                tblNoPIC.push({
-                    name: superTokens[i].name,
-                    symbol: superTokens[i].symbol,
-                })
+            const bondStr = wad4human(picInfo.bond);
+            const entry = {
+                name: superTokens[i].name,
+                symbol: superTokens[i].symbol,
+                PIC: picInfo.pic,
+                Bond: bondStr,
+                ExitRatePerDay: wad4human(toBN(picInfo.exitRate).mul(toBN(3600 * 24))),
+                _bondNum: parseFloat(bondStr),
+            };
+            if (picInfo.pic !== ZERO_ADDR) {
+                tblWithPIC.push(entry);
+            } else if (picInfo.bond !== '0') {
+                tblNoPIC.push(entry);
+            } else if (process.env.ALL_TOKENS) {
+                tblIdle.push(entry);
             }
         } catch(err) {
             console.error(err);
         }
     }
-    console.log(`Network: ${networkName} - TOGAv2`);
-    console.log('```');
-    console.table(tblPIC, ["name", "symbol", "PIC", "Bond", "ExitRatePerDay"]);
-    console.log('```');
+    tblWithPIC.sort((a, b) => b._bondNum - a._bondNum);
+    tblNoPIC.sort((a, b) => b._bondNum - a._bondNum);
+
+    console.log(`Network: ${networkName} — TOGAv2: ${tblWithPIC.length} with PIC, ${tblNoPIC.length} no PIC, ${tblIdle.length} idle`);
+
+    if (tblWithPIC.length > 0) {
+        console.log('');
+        console.log('With PIC:');
+        for (const t of tblWithPIC) {
+            const exitPart = parseFloat(t.ExitRatePerDay) > 0 ? `, Exit/day ${t.ExitRatePerDay}` : '';
+            console.log(`${t.symbol} — PIC ${t.PIC}, Bond ${t.Bond}${exitPart}`);
+        }
+    }
+
+    if (tblNoPIC.length > 0) {
+        console.log('');
+        console.log('No PIC:');
+        for (const t of tblNoPIC) {
+            console.log(`${t.symbol} — Bond ${t.Bond}`);
+        }
+    }
+
+    if (tblIdle.length > 0) {
+        console.log('');
+        console.log(`Idle: ${tblIdle.map(t => t.symbol).join(', ')}`);
+    }
 })();
 
