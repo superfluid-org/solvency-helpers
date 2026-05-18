@@ -54,7 +54,7 @@ const sfSubgraph = require("./superfluid-subgraph");
     tblWithPIC.sort((a, b) => b._bondNum - a._bondNum);
     tblNoPIC.sort((a, b) => b._bondNum - a._bondNum);
 
-    console.log('---------------------------------------');
+    console.log('------------------------------------------------------------');
     console.log(`*Network: ${networkName} — TOGAv2: ${tblWithPIC.length} with PIC, ${tblNoPIC.length} no PIC, ${tblIdle.length} idle*`);
 
     if (tblWithPIC.length > 0) {
@@ -79,6 +79,6 @@ const sfSubgraph = require("./superfluid-subgraph");
         console.log(`_Idle:_ ${tblIdle.map(t => t.symbol).join(', ')}`);
     }
 
-    console.log('----------------');
+    console.log('------------------------------------------------------------');
 })();
 
