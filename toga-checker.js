@@ -54,28 +54,28 @@ const sfSubgraph = require("./superfluid-subgraph");
     tblWithPIC.sort((a, b) => b._bondNum - a._bondNum);
     tblNoPIC.sort((a, b) => b._bondNum - a._bondNum);
 
-    console.log(`Network: ${networkName} — TOGAv2: ${tblWithPIC.length} with PIC, ${tblNoPIC.length} no PIC, ${tblIdle.length} idle`);
+    console.log(`*Network: ${networkName} — TOGAv2: ${tblWithPIC.length} with PIC, ${tblNoPIC.length} no PIC, ${tblIdle.length} idle*`);
 
     if (tblWithPIC.length > 0) {
         console.log('');
-        console.log('With PIC:');
+        console.log('*With PIC:*');
         for (const t of tblWithPIC) {
             const exitPart = parseFloat(t.ExitRatePerDay) > 0 ? `, Exit/day ${t.ExitRatePerDay}` : '';
-            console.log(`${t.symbol} — PIC ${t.PIC}, Bond ${t.Bond}${exitPart}`);
+            console.log(`*${t.symbol}* — PIC ${t.PIC}, Bond ${t.Bond}${exitPart}`);
         }
     }
 
     if (tblNoPIC.length > 0) {
         console.log('');
-        console.log('No PIC:');
+        console.log('*No PIC:*');
         for (const t of tblNoPIC) {
-            console.log(`${t.symbol} — Bond ${t.Bond}`);
+            console.log(`*${t.symbol}* — Bond ${t.Bond}`);
         }
     }
 
     if (tblIdle.length > 0) {
         console.log('');
-        console.log(`Idle: ${tblIdle.map(t => t.symbol).join(', ')}`);
+        console.log(`_Idle:_ ${tblIdle.map(t => t.symbol).join(', ')}`);
     }
 })();
 
