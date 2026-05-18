@@ -1,0 +1,24 @@
+{
+  "0x714740264706DaDef0C01F1EF6769E662227c7cc": {
+    "base-mainnet": {
+      "0xD04383398dD2426297da660F9CCA3d439AF9ce1b": "NONNATIVE",
+      "0x46fd5cfB4c12D87acD3a13e92BAa53240C661D93": "NONNATIVE",
+      "ETH": "NATIVE"
+    },
+    "polygon-mainnet": {
+      "0x07b24BBD834c1c546EcE89fF95f71D9F13a2eBD1": "NONNATIVE",
+      "MATIC": "NATIVE"
+    }
+  },
+  "0x5E00c69e0e5BF737214172662a22bC0D3D907fae": {
+    "base-mainnet": {
+      "0xD04383398dD2426297da660F9CCA3d439AF9ce1b": "NONNATIVE",
+      "0x46fd5cfB4c12D87acD3a13e92BAa53240C661D93": "NONNATIVE",
+      "ETH": "NATIVE"
+    },
+    "polygon-mainnet": {
+      "0x07b24BBD834c1c546EcE89fF95f71D9F13a2eBD1": "NONNATIVE",
+      "MATIC": "NATIVE"
+    }
+  }
+}
